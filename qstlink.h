@@ -11,7 +11,8 @@ class QStLink : public QObject
     Q_OBJECT
 public:
     explicit QStLink(QObject *parent = 0);
-    
+
+    //stlink version struct
     typedef struct
     {
         int stlink;
@@ -19,35 +20,50 @@ public:
         int swim;
     } version_t;
 
+    //arm stm32 register set
+    typedef struct
+    {
+        uint32_t r[16];
+        uint32_t s[32];
+        uint32_t xpsr;
+        uint32_t main_sp;
+        uint32_t process_sp;
+        uint32_t rw;
+        uint32_t rw2;
+        uint8_t control;
+        uint8_t faultmask;
+        uint8_t basepri;
+        uint8_t primask;
+        uint32_t fpscr;
+    } core_regs_t;
 
-    //api
+    //info
     int GetStlinkMode(QString * text = NULL);
     version_t GetStlinkVersion();
     bool IsCoreHalted();
-    void ExitDFUMode();
-    void EnterSWDMode();
     int GetCoreID();
-    void CoreStop();
-    void CoreRun();
     inline QString GetCoreStatus() {RefreshCoreStatus(); return CoreState;}
 
+    //modes
+    void ExitDFUMode();
+    void EnterSWDMode();
+
+    //core commands
+    void CoreStop();
+    void CoreRun();
+    void CoreSingleStep();
+    void SysReset();
+    void WriteRegister(uint8_t reg_idx, uint32_t data);
+    uint32_t ReadRegister(uint8_t reg_idx);
+    core_regs_t ReadAllRegisters();
+
+    //memory commands
     void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) throw (QString);
     void WriteRam(uint32_t address, const QByteArray & buffer) throw (QString);
 
+    //možná hodit do vyšši vrstvy, uvidime jak to pude
     void ReadFlash(uint32_t address, uint32_t length, QByteArray & buffer);
     void WriteFlash(uint32_t address, QByteArray & buffer);
-
-    /*
-     * writetoram(adresa,co)
-     * readram(adresa,kolik)
-     * readflash(adresa,kolik) - asi stejně jak readram
-     * zápis do flaš přes loader - umřu
-     */
-
-
-signals:
-    
-public slots:
     
 private:
     QString Mode;

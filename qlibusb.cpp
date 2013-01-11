@@ -58,7 +58,7 @@ QByteArray QLibusb::Read(int count) throw ( QString )
     int cant = count;
 
     if (cant == 0)
-        count = 65;
+        count = 500;
 
     QByteArray ret;
     int tries = 20;

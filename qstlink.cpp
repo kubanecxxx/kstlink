@@ -9,24 +9,29 @@ QStLink::QStLink(QObject *parent) :
 {
     usb = new QLibusb(this);
 
+    QByteArray neco =usb->Read(0);
     EnterSWDMode();
     GetStlinkMode();
     GetCoreID();
     RefreshCoreStatus();
 
+    /*
+     * otestovat funkce na registry
+     * reset
+     * single step
+     *
+     */
+
     CoreStop();
-
-    char b = 0;
-
-
-
-
+    WriteRegister(5,100);
+    uint32_t val = ReadRegister(5);
+    core_regs_t regs = ReadAllRegisters();
 
     /*
      * benchmark
-     * speed of read and write are ~50kbit/s
+     * speeds of read and write are ~50kbit/s
      */
-#if 0
+#if 1
     QByteArray tx;
     int i;
     for (i = 0 ; i < 10000; i++)
@@ -49,6 +54,8 @@ QStLink::QStLink(QObject *parent) :
 
 void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) throw(QString)
 {
+    BOTHER("Read ram");
+
     int kolik  = 0;
     while(length % 4)
     {
@@ -91,6 +98,8 @@ void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QStri
 {
     QByteArray cpy(buffer);
 
+    BOTHER("Write ram");
+
     if (address < STM32_SRAM_BASE)
         throw(QString("QStLink::WriteRam: address is out of range"));
 
@@ -109,7 +118,6 @@ void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QStri
          * write segment
          */
         int len = segment.count();
-        int modulo = len % 4;
         int words = len / 4;
 
         int len4 = words * 4;
@@ -180,6 +188,66 @@ void QStLink::CoreRun()
     BOTHER("Core run");
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_RUNCORE);
+    CommandDebug(tx,rx,2);
+
+    RefreshCoreStatus();
+}
+
+void QStLink::CoreSingleStep()
+{
+    BOTHER("Core single step");
+    QByteArray tx,rx;
+    tx.append(STLINK_DEBUG_STEPCORE);
+    CommandDebug(tx,rx,2);
+
+    RefreshCoreStatus();
+}
+
+void QStLink::WriteRegister(uint8_t reg_idx, uint32_t data)
+{
+    BOTHER("Core write register");
+    QByteArray tx,rx;
+    tx.append(STLINK_DEBUG_WRITEREG);
+    tx.append(reg_idx);
+    FillArrayEndian32(tx,data);
+    CommandDebug(tx,rx,2);
+}
+
+uint32_t QStLink::ReadRegister(uint8_t reg_idx)
+{
+    BOTHER("Core read register");
+    QByteArray tx,rx;
+    tx.append(STLINK_DEBUG_READREG);
+    tx.append(reg_idx);
+    CommandDebug(tx,rx,4);
+
+    uint32_t val;
+    memcpy(&val,rx.constData(),4);
+
+    return val;
+}
+
+QStLink::core_regs_t QStLink::ReadAllRegisters()
+{
+    BOTHER("Core read all registers");
+    QByteArray tx,rx;
+    tx.append(STLINK_DEBUG_READALLREGS);
+    CommandDebug(tx,rx,84);
+    //CommandDebug(tx,rx,0);
+
+    core_regs_t temp;
+    memcpy(&temp, rx.constData(),sizeof(core_regs_t));
+
+    GetCoreStatus();
+
+    return temp;
+}
+
+void QStLink::SysReset()
+{
+    BOTHER("System reset");
+    QByteArray tx,rx;
+    tx.append(STLINK_DEBUG_RESETSYS);
     CommandDebug(tx,rx,2);
 
     RefreshCoreStatus();
