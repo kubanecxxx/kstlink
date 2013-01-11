@@ -21,4 +21,13 @@ private:
 
 };
 
+#define EXECUTION_TIME(x,h) \
+    QTime h##_time1 = QTime::currentTime(); \
+    {x} \
+    QTime h##_time2 = QTime::currentTime(); \
+    int h##_ms1 = (h##_time1).minute() * 60000 + (h##_time1).second() * 1000 + h##_time1.msec(); \
+    int h##_ms2 = (h##_time2).minute() * 60000 + (h##_time2).second() * 1000 + h##_time2.msec(); \
+    int h##_result = h##_ms2 - h##_ms1;
+
+
 #endif // QLOG_H

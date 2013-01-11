@@ -1,6 +1,7 @@
 #include "qstlink.h"
 #include "QDebug"
 #include <QtEndian>
+#include <QTime>
 
 QStLink::QStLink(QObject *parent) :
     QObject(parent),
@@ -17,23 +18,68 @@ QStLink::QStLink(QObject *parent) :
 
     char b = 0;
 
-    QByteArray tx;
 
-    for (int i = 0 ; i < 513; i++)
+
+
+
+    /*
+     * benchmark
+     * speed of read and write are ~50kbit/s
+     */
+#if 0
+    QByteArray tx;
+    int i;
+    for (i = 0 ; i < 10000; i++)
         tx.append(i);
-    WriteRam(0x20000000,tx);
+    EXECUTION_TIME(WriteRam(0x20000000,tx); , wr);
+    float speed = 1.0 *i / wr_result;
 
     QByteArray rx;
-    ReadRam32(0x20000000,10,rx);
+
+    EXECUTION_TIME(ReadRam(0x20000000,10000,rx); , read);
+    float speed2 = 1.0 *10000 / read_result;
+
     int co = rx.count();
 
     rx.clear();
-
-    int i = 0 ;
-    i++;
+#endif
 }
 
 #define SEGMENT_SIZE 512
+
+void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) throw(QString)
+{
+    int kolik  = 0;
+    while(length % 4)
+    {
+        length++;
+        kolik++;
+    }
+
+    int temp = length;
+    int size;
+    while(temp > 0)
+    {
+        if (temp > SEGMENT_SIZE)
+        {
+            size = SEGMENT_SIZE;
+            temp -= SEGMENT_SIZE;
+        }
+        else
+        {
+            size = temp;
+            temp = 0;
+        }
+
+        QByteArray array;
+        ReadRam32(address,size,array);
+        buffer.append(array);
+
+        address += SEGMENT_SIZE;
+    }
+
+    buffer.resize(buffer.count() - kolik);
+}
 
 /**
  * @brief QStLink::WriteRam

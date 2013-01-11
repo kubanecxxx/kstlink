@@ -31,7 +31,7 @@ public:
     void CoreRun();
     inline QString GetCoreStatus() {RefreshCoreStatus(); return CoreState;}
 
-    void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer);
+    void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) throw (QString);
     void WriteRam(uint32_t address, const QByteArray & buffer) throw (QString);
 
     void ReadFlash(uint32_t address, uint32_t length, QByteArray & buffer);
