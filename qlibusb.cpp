@@ -60,10 +60,10 @@ QByteArray QLibusb::Read(int count) throw ( QString )
         count = 500;
 
     QByteArray ret;
-    int tries = 20;
+    int tries = 5;
     while (count)
     {
-        libusb_bulk_transfer(handle,EPIN,buffer,count, &length,10);
+        libusb_bulk_transfer(handle,EPIN,buffer,count, &length,40);
         ret.append((char *)buffer,length);
         count -= length;
 

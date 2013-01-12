@@ -2,17 +2,26 @@
 #include "qstlink.h"
 #include "armConstants.h"
 #include <QFile>
+#include "stm100.h"
 
-QArm3::QArm3(QObject *parent) :
-    QArmAbstract(parent),
+QArm3::QArm3(QObject *parent, const chip_properties_t & chip) :
+    QArmAbstract(parent, chip),
     cm3FPB(*this)
 {
+    Properties.chipID = chipID;
+    Properties.stlink = &StProperties;
+
     CoreStop();
     ReadAllRegs();
-
     EnableFPB();
 
+    stm100 stm(*this,1024,128);
+    bool ok = stm.VerifyErased(1);
 
+/*
+ *  až pojede loadování
+ * tak otestovat erase a verify range
+ */
 
     /*
      * test - play some program into ram and step it
@@ -27,7 +36,7 @@ QArm3::QArm3(QObject *parent) :
     QByteArray ver;
     ReadRam(0x20000000,20,ver);
 
-    WriteRegister(15,0x08000000);
+    WriteRegister(15,0x20000000);
 
    ReadAllRegs();
    CoreRun();
@@ -65,7 +74,13 @@ void QArm3::WriteRam(uint32_t address, const QByteArray &buffer) throw (QString)
 
 void QArm3::BreakpointWrite(uint32_t address) throw (QString)
 {
-    //emit breakpint();
+    if (address >= SRAM_BASE)
+        throw(QString("Cannot setup breakpoint into RAM"));
+
+    bool ok = LoadBreakPoint(address);
+
+    if (!ok)
+        throw(QString("No resources to setup another breakpoint"));
 }
 
 void QArm3::BreakpointRemove(uint32_t address) throw (QString)

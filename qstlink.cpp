@@ -474,6 +474,19 @@ uint16_t QStLink::ReadUint16(const QByteArray &array)
     return ret;
 }
 
+void QStLink::WriteRamRegister(volatile uint32_t *reg,uint32_t val)
+{
+    uint32_t temp = (uint64_t) reg;
+    WriteRamWord(temp,val);
+}
+
+uint32_t QStLink::ReadMemoryRegister(volatile uint32_t * reg)
+{
+    uint32_t temp = (uint64_t) reg;
+
+    return ReadMemoryWord(temp);
+}
+
 uint32_t QStLink::ReadMemoryWord(uint32_t address)
 {
     QByteArray buf;

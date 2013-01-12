@@ -9,7 +9,7 @@ class QArm3 : public QArmAbstract, public cm3FPB
 {
     Q_OBJECT
 public:
-    explicit QArm3(QObject *parent);
+    explicit QArm3(QObject *parent, const chip_properties_t & chip);
 
     //arm stm32 register set
     typedef struct
@@ -32,31 +32,9 @@ public:
         cm3_regs_t coreRegs;
         int CodeComparators;
         int LitComparators;
-    } properties_t;;
-
-    /*
-    typedef struct
-    {
-        uint32_t CORE_ID;
-        uint32_t FLASH_BASE;
-        uint32_t RAM_BASE;
-        uint32_t CHIP_ID;
-
-        uint32_t REG_CPUID;
-        //Flash Patch Control Register
-        uint32_t REG_FP_CTRL;
-        //uint32_t REG_FP_REMAP;
-        uint16_t COMP_REG_COUNT;
-        uint32_t REG_COMP_BASE;
-
-        uint32_t DHCSR ;
-        uint32_t DCRSR ;
-        uint32_t DCRDR ;
-        uint32_t DBGKEY ;
-    } Debug_t;
-    */
-
-
+        int chipID;
+        QStLink::stlink_properties_t * stlink;
+    } properties_t;
 
     void WriteRam(uint32_t address, const QByteArray &buffer) throw (QString);
     cm3_regs_t ReadAllRegs();
@@ -67,9 +45,6 @@ public:
     void FlashClear(uint32_t address, uint32_t length) throw (QString);
     void FlashMassClear() throw (QString);
     void FlashWrite(uint32_t address, const QByteArray & data) throw (QString);
-
-
-
 signals:
 
 public slots:

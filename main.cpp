@@ -23,7 +23,8 @@ int main(int argc, char *argv[])
     deb.DBGKEY = _DBGKEY;
 */
 
-    new QArm3(&a);
+    QArmAbstract::chip_properties_t chip;
+    new QArm3(&a,chip);
 
     return a.exec();
 }

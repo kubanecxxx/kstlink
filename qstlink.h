@@ -49,6 +49,8 @@ public:
     virtual void WriteRam(uint32_t address, const QByteArray & buffer);
 
     uint32_t ReadMemoryWord(uint32_t address);
+    uint32_t ReadMemoryRegister(volatile uint32_t * reg);
+    void WriteRamRegister(volatile uint32_t * reg,uint32_t val);
     void WriteRamWord(uint32_t address, uint32_t data);
     void WriteRamByte(uint32_t address, uint8_t data);
     void WriteRamHalfWord(uint32_t address, uint16_t data);
@@ -68,16 +70,13 @@ protected:
 
     QLibusb * usb;
 
-    void CommandDebug(QByteArray & txbuf);
-    void CommandDebug (QByteArray &txbuf , QByteArray & rxbuf, int rxsize);
-
-private:
     stlink_properties_t StProperties;
-
+private:
     void Command (const QByteArray & txbuf);
     void Command (const QByteArray &txbuf , QByteArray & rxbuf, int rxsize);
 
-
+    void CommandDebug(QByteArray & txbuf);
+    void CommandDebug (QByteArray &txbuf , QByteArray & rxbuf, int rxsize);
 
     void RefreshCoreStatus();
 
