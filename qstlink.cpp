@@ -15,23 +15,14 @@ QStLink::QStLink(QObject *parent) :
     GetCoreID();
     RefreshCoreStatus();
 
-    /*
-     * otestovat funkce na registry
-     * reset
-     * single step
-     *
-     */
 
-    CoreStop();
-    WriteRegister(5,100);
-    uint32_t val = ReadRegister(5);
-    core_regs_t regs = ReadAllRegisters();
 
     /*
      * benchmark
      * speeds of read and write are ~50kbit/s
      */
-#if 1
+    asm("nop");
+#if 0
     QByteArray tx;
     int i;
     for (i = 0 ; i < 10000; i++)
@@ -44,19 +35,25 @@ QStLink::QStLink(QObject *parent) :
     EXECUTION_TIME(ReadRam(0x20000000,10000,rx); , read);
     float speed2 = 1.0 *10000 / read_result;
 
-    int co = rx.count();
-
     rx.clear();
 #endif
 }
 
 #define SEGMENT_SIZE 512
 
+/**
+ * @brief QStLink::ReadRam
+ * api reads ram any size
+ * @param address start address
+ * @param length data length in bytes
+ * @param buffer output data buffer
+ */
 void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) throw(QString)
 {
     BOTHER("Read ram");
 
     int kolik  = 0;
+    //fill to multiply 4
     while(length % 4)
     {
         length++;
@@ -65,6 +62,7 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) th
 
     int temp = length;
     int size;
+    //divide into smaller segments
     while(temp > 0)
     {
         if (temp > SEGMENT_SIZE)
@@ -85,14 +83,15 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) th
         address += SEGMENT_SIZE;
     }
 
+    //delete added bytes
     buffer.resize(buffer.count() - kolik);
 }
 
 /**
  * @brief QStLink::WriteRam
  * api, writes data, any size
- * @param address
- * @param buffer
+ * @param address start address
+ * @param buffer input data
  */
 void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QString)
 {
@@ -227,20 +226,24 @@ uint32_t QStLink::ReadRegister(uint8_t reg_idx)
     return val;
 }
 
-QStLink::core_regs_t QStLink::ReadAllRegisters()
+void QStLink::ReadAllRegisters(QStLink::core_regs_t * regs)
 {
     BOTHER("Core read all registers");
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_READALLREGS);
-    CommandDebug(tx,rx,84);
-    //CommandDebug(tx,rx,0);
+    CommandDebug(tx,rx,sizeof(core_regs_t));
 
-    core_regs_t temp;
-    memcpy(&temp, rx.constData(),sizeof(core_regs_t));
+    memcpy(regs, rx.constData(),sizeof(core_regs_t));
 
-    GetCoreStatus();
+    INFO("Regs:");
+    for (int i = 0; i < 16; i++)
+        INFO(QString("r%1 = 0x%2").arg(i).arg(regs->r[i],8,16,QChar('0')));
 
-    return temp;
+    INFO(QString("xpsr = 0x%1").arg(regs->xpsr,8,16,QChar('0')));
+    INFO(QString("mainsp = 0x%1").arg(regs->main_sp,8,16,QChar('0')));
+    INFO(QString("processsp = 0x%1").arg(regs->process_sp,8,16,QChar('0')));
+    INFO(QString("rw = 0x%1").arg(regs->rw,8,16,QChar('0')));
+    INFO(QString("rw2 = 0x%1").arg(regs->rw2,8,16,QChar('0')));
 }
 
 void QStLink::SysReset()

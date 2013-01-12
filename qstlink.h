@@ -24,17 +24,19 @@ public:
     typedef struct
     {
         uint32_t r[16];
-        uint32_t s[32];
+        //uint32_t s[32];
         uint32_t xpsr;
         uint32_t main_sp;
         uint32_t process_sp;
         uint32_t rw;
         uint32_t rw2;
+        /*
         uint8_t control;
         uint8_t faultmask;
         uint8_t basepri;
         uint8_t primask;
         uint32_t fpscr;
+        */
     } core_regs_t;
 
     //info
@@ -55,7 +57,7 @@ public:
     void SysReset();
     void WriteRegister(uint8_t reg_idx, uint32_t data);
     uint32_t ReadRegister(uint8_t reg_idx);
-    core_regs_t ReadAllRegisters();
+    void ReadAllRegisters(core_regs_t * regs);
 
     //memory commands
     void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) throw (QString);
