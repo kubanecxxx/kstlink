@@ -2,20 +2,22 @@
 #include "QDebug"
 #include <QtEndian>
 #include <QTime>
+#include "stlinkCommands.h"
 
 QStLink::QStLink(QObject *parent) :
-    QObject(parent),
-    coreID(0)
+    QObject(parent)
 {
     usb = new QLibusb(this);
 
-    QByteArray neco =usb->Read(0);
+
+    /*
+     * init Properties struct;
+     */
+    GetStlinkVersion();
     EnterSWDMode();
     GetStlinkMode();
     GetCoreID();
     RefreshCoreStatus();
-
-
 
     /*
      * benchmark
@@ -39,8 +41,6 @@ QStLink::QStLink(QObject *parent) :
 #endif
 }
 
-#define SEGMENT_SIZE 512
-
 /**
  * @brief QStLink::ReadRam
  * api reads ram any size
@@ -48,7 +48,7 @@ QStLink::QStLink(QObject *parent) :
  * @param length data length in bytes
  * @param buffer output data buffer
  */
-void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) throw(QString)
+void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
 {
     BOTHER("Read ram");
 
@@ -93,14 +93,11 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer) th
  * @param address start address
  * @param buffer input data
  */
-void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QString)
+void QStLink::WriteRam(uint32_t address, const QByteArray & buffer)
 {
     QByteArray cpy(buffer);
 
     BOTHER("Write ram");
-
-    if (address < STM32_SRAM_BASE)
-        throw(QString("QStLink::WriteRam: address is out of range"));
 
     while (cpy.count())
     {
@@ -226,15 +223,16 @@ uint32_t QStLink::ReadRegister(uint8_t reg_idx)
     return val;
 }
 
-void QStLink::ReadAllRegisters(QStLink::core_regs_t * regs)
+void QStLink::ReadAllRegisters(void * regs, int size)
 {
     BOTHER("Core read all registers");
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_READALLREGS);
-    CommandDebug(tx,rx,sizeof(core_regs_t));
+    CommandDebug(tx,rx,size);
 
-    memcpy(regs, rx.constData(),sizeof(core_regs_t));
+    memcpy(regs, rx.constData(),size);
 
+    /*
     INFO("Regs:");
     for (int i = 0; i < 16; i++)
         INFO(QString("r%1 = 0x%2").arg(i).arg(regs->r[i],8,16,QChar('0')));
@@ -244,6 +242,7 @@ void QStLink::ReadAllRegisters(QStLink::core_regs_t * regs)
     INFO(QString("processsp = 0x%1").arg(regs->process_sp,8,16,QChar('0')));
     INFO(QString("rw = 0x%1").arg(regs->rw,8,16,QChar('0')));
     INFO(QString("rw2 = 0x%1").arg(regs->rw2,8,16,QChar('0')));
+    */
 }
 
 void QStLink::SysReset()
@@ -263,6 +262,7 @@ void QStLink::RefreshCoreStatus()
     CommandDebug(tx,rx,2);
 
     unsigned char s = rx.at(0);
+    QString CoreState;
 
     switch(s)
     {
@@ -278,6 +278,8 @@ void QStLink::RefreshCoreStatus()
     }
 
     INFO("Core status " + CoreState);
+
+    StProperties.CoreState = CoreState;
 }
 
 int QStLink::GetCoreID()
@@ -286,7 +288,10 @@ int QStLink::GetCoreID()
     tx.append(STLINK_DEBUG_READCOREID);
     CommandDebug(tx,rx,4);
 
+    uint32_t coreID;
     memcpy(&coreID,rx.constData(),4);
+
+    StProperties.coreID = coreID;
 
     INFO(QString("Core ID: 0x%1").arg(coreID,0,16));
 
@@ -317,7 +322,7 @@ void QStLink::EnterSWDMode()
 bool QStLink::IsCoreHalted()
 {
     RefreshCoreStatus();
-    return (CoreState == "Halted");
+    return (StProperties.CoreState == "Halted");
 }
 
 int QStLink::GetStlinkMode(QString * text)
@@ -331,6 +336,7 @@ int QStLink::GetStlinkMode(QString * text)
 
     int mode = rx.at(0);
 
+    QString Mode;
     switch (mode)
     {
     case STLINK_DEV_DFU_MODE:
@@ -352,6 +358,8 @@ int QStLink::GetStlinkMode(QString * text)
 
     INFO("STlink mode " + Mode);
 
+    StProperties.Mode = Mode;
+
     return mode;
 }
 
@@ -371,7 +379,7 @@ QStLink::version_t QStLink::GetStlinkVersion()
     ver.jtag = ((b0 & 0x0f) << 2) | ((b1 & 0xc0) >> 6);
     ver.swim = b1 & 0x3f;
 
-    version = ver;
+    StProperties.stlinkVersion = ver;
 
     INFO("STlink version " + rx.toHex() );
 
@@ -400,7 +408,6 @@ void QStLink::CommandDebug(QByteArray &txbuf, QByteArray &rxbuf, int rxsize)
     catch ( QString  neco)
     {
         //cannot happen - bad input values from programmer
-        Q_ASSERT(0);
         ERR(neco);
     }
 }
@@ -414,7 +421,6 @@ void QStLink::Command(const QByteArray &txbuf)
     }
     catch ( QString  neco)
     {
-        Q_ASSERT(0);
         ERR(neco);
     }
 
@@ -434,7 +440,6 @@ void QStLink::Command(const QByteArray &txbuf, QByteArray &rxbuf, int rxsize)
     catch ( QString  neco)
     {
         //cannot happen - bad input values from programmer
-        Q_ASSERT(0);
         ERR(neco);
     }
 }
@@ -451,4 +456,51 @@ void QStLink::FillArrayEndian32(QByteArray &array, uint32_t data)
     array.append((data >> 8) & 0xFF );
     array.append((data >> 16)&  0xFF );
     array.append((data >> 24)&  0xFF );
+}
+
+uint32_t QStLink::ReadUint32(const QByteArray &array)
+{
+    uint32_t ret;
+
+    memcpy(&ret,array.constData(),4);
+    return ret;
+}
+
+uint16_t QStLink::ReadUint16(const QByteArray &array)
+{
+    uint16_t ret;
+
+    memcpy(&ret,array.constData(),2);
+    return ret;
+}
+
+uint32_t QStLink::ReadMemoryWord(uint32_t address)
+{
+    QByteArray buf;
+    ReadRam32(address,4,buf);
+
+    return ReadUint32(buf);
+}
+
+void QStLink::WriteRamWord(uint32_t address, uint32_t data)
+{
+    QByteArray buf;
+    FillArrayEndian32(buf,data);
+
+    WriteRam32(address,buf);
+}
+
+void QStLink::WriteRamByte(uint32_t address, uint8_t data)
+{
+    QByteArray buf;
+    buf.append(data);
+
+    WriteRam8(address,buf);
+}
+
+void QStLink::WriteRamHalfWord(uint32_t address, uint16_t data)
+{
+    QByteArray buf;
+    FillArrayEndian16(buf,data);
+    WriteRam8(address,buf);
 }

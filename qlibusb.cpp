@@ -1,6 +1,7 @@
 #include "qlibusb.h"
 #include "include.h"
 #include "QDebug"
+#include "stlinkCommands.h"
 
 QLibusb::QLibusb(QObject *parent) :
     QObject(parent),
@@ -24,8 +25,6 @@ QLibusb::QLibusb(QObject *parent) :
     }
 
     BOTHER("Stlink Opened");
-
-    //open end points
 }
 
 QLibusb::~QLibusb()
