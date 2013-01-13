@@ -1,5 +1,4 @@
 #include "cm3fpb.h"
-#include "qarm_cm3.h"
 #include "armConstants.h"
 
 cm3FPB::cm3FPB(QArm3 & father):

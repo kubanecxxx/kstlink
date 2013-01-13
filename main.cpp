@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 */
 
     QArmAbstract::chip_properties_t chip;
-    new QArm3(&a,chip);
+    new QStLink(&a);
 
     return a.exec();
 }

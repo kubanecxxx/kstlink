@@ -3,11 +3,6 @@
 
 #include <inttypes.h>
 
-// Constant STM32 memory map figures
-#define FLASH_BASE 0x08000000
-#define SRAM_BASE 0x20000000
-
-
 /* cortex core ids */
 // TODO clean this up...
 #define STM32VL_CORE_ID 0x1ba01477

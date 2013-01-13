@@ -6,13 +6,18 @@
 #include <QFile>
 #include <unistd.h>
 
-#define KEY1    0x45670123
-#define KEY2    0xCDEF89AB
+#define REG_RAMPOINTER      0
+#define REG_FLASHPOINTER    1
+#define REG_STATUS          2
+#define REG_DATALENGTH      4
+#define REG_PC              15
+#define SEGMENT_SIZE        0x400
 
-stm100::stm100(QStLink & father, int pageSize, int pageCount):
+stm100::stm100(QStLink & father, const pages_t & Pages):
     par(father),
-    Size(pageSize),
-    Count(pageCount)
+    pages(Pages),
+    Size(pages[0]),
+    Count(pages.count())
 {
     IsLocked();
 
@@ -22,28 +27,69 @@ stm100::stm100(QStLink & father, int pageSize, int pageCount):
 
     loader = file.readAll();
     file.close();
+
+    for (int i = 0 ; i < 16 ; i++)
+    {
+        reg_t temp;
+        temp.val = 0;
+        temp.Reg = QString("r%1").arg(i);
+        registers.push_back(temp);
+    }
+    reg_t temp;
+    temp.val = 0;
+    temp.Reg = QString("xpsr");
+    registers.push_back(temp);
+    temp.Reg = QString("main_sp");
+    registers.push_back(temp);
+    temp.Reg = QString("process_sp");
+    registers.push_back(temp);
+    temp.Reg = QString("primask..");
+    registers.push_back(temp);
+    temp.Reg = QString("fpscr");
+    registers.push_back(temp);
+
+    regs_human = (cm3_regs_t *)malloc(sizeof(cm3_regs_t) + 256);
 }
 
-#define REG_RAMPOINTER      0
-#define REG_FLASHPOINTER    1
-#define REG_STATUS          2
-#define REG_DATALENGTH      4
-#define REG_PC              15
-#define SEGMENT_SIZE        0x400
+stm100::~stm100()
+{
+    free(regs_human);
+}
 
-bool stm100::WriteFlash(uint32_t start, const QByteArray &data)
+void stm100::ReadAllRegisters(uint32_t * rawData)
+{
+    ReadAllRegisters();
+
+    for (int i = 0 ; i < registers.count(); i++)
+        rawData[i] = registers[i].val;
+}
+
+const stm100::regs_t & stm100::ReadAllRegisters()
+{
+    uint32_t temp[registers.count()];
+    par.ReadAllRegisters(temp,registers.count() * 4);
+
+    for (int i = 0 ; i < registers.count(); i++)
+    {
+        registers[i].val = temp[i];
+    }
+
+    memcpy(regs_human, temp,  sizeof(cm3_regs_t));
+
+    return registers;
+}
+
+void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
 {
     par.CoreStop();
     if (IsBusy())
-        return false;
+        throw(QString("stm100 WriteFlash memory is busy"));
 
     QByteArray cpy(data);
     while (cpy.count() % 2)
         cpy.append('\0');
 
-    bool erased =EraseRange(start,start+data.count(),false);
-    if (!erased)
-        return false;
+    EraseRange(start,start+data.count(),false);
 
     FlashUnlock();
     IsLocked();
@@ -84,16 +130,13 @@ bool stm100::WriteFlash(uint32_t start, const QByteArray &data)
             usleep(5000);
             if(timeout++ == 200)
             {
-                WARN("Flash writing timeout");
-                return false;
+                throw(QString("stm100 WriteFlash memory timeout"));
             }
         }
     }
 
     par.WriteRamRegister(&FLASH->CR,0);
     FlashLock();
-
-    return true;
 }
 
 bool stm100::IsLocked()
@@ -119,34 +162,29 @@ bool stm100::IsBusy()
     return busy;
 }
 
-bool stm100::EraseRange(uint32_t start, uint32_t stop, bool verify)
+void stm100::EraseRange(uint32_t start, uint32_t stop, bool verify) throw (QString)
 {
     uint32_t firstpage = (start - FLASH_BASE) / this->Size;
     uint32_t pagecount = (stop - start) / this->Size + 1;
 
     while(pagecount--)
     {
-        if (!ErasePage(firstpage))
-            return false;
+        ErasePage(firstpage);
 
         if (verify)
             if (!VerifyErased(firstpage))
-                return false;
+                throw(QString("stm100 EraseRange %1 page verification failed").arg(firstpage));
 
         firstpage++;
     }
-
-    return true;
 }
 
-bool stm100::ErasePage(int pageNumber)
+void stm100::ErasePage(int pageNumber) throw (QString)
 {
-    FlashUnlock();
     if (IsBusy())
-    {
-        FlashLock();
-        return false;
-    }
+       throw(QString("stm100 ErasePage - Flash is busy"));
+
+    FlashUnlock();
 
     uint32_t cr;
     cr = FLASH_CR_PER;
@@ -159,12 +197,11 @@ bool stm100::ErasePage(int pageNumber)
     cr |= FLASH_CR_STRT;
     par.WriteRamRegister(&FLASH->CR,cr);
 
-    while(IsBusy());
+    while(IsBusy())
+        usleep(4000);
 
     par.WriteRamRegister(&FLASH->CR,0);
     FlashLock();
-
-    return true;
 }
 
 bool stm100::VerifyErased(int PageNum)
@@ -199,14 +236,12 @@ bool stm100::VerifyErased(int PageNum)
     return true;
 }
 
-bool stm100::EraseMass()
+void stm100::EraseMass() throw (QString)
 {
-    FlashUnlock();
     if (IsBusy())
-    {
-        FlashLock();
-        return false;
-    }
+        throw(QString("stm100 EraseMass - Flash is busy"));
+
+    FlashUnlock();
 
     uint32_t cr;
     cr = FLASH_CR_MER;
@@ -216,11 +251,10 @@ bool stm100::EraseMass()
     cr |= FLASH_CR_STRT;
     par.WriteRamRegister(&FLASH->CR,cr);
 
-    while (IsBusy());
+    while (IsBusy())
+        usleep(4000);
 
     cr = par.ReadMemoryRegister(&FLASH->SR);
-
-    return true;
 }
 
 void stm100::FlashUnlock()

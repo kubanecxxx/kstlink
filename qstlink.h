@@ -5,6 +5,7 @@
 #include "qlibusb.h"
 #include "include.h"
 #include "QByteArray"
+#include "stm100.h"
 
 class QStLink : public QObject
 {
@@ -46,7 +47,7 @@ public:
 
     //memory commands
     void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer);
-    virtual void WriteRam(uint32_t address, const QByteArray & buffer);
+    void WriteRam(uint32_t address, const QByteArray & buffer) throw (QString);
 
     uint32_t ReadMemoryWord(uint32_t address);
     uint32_t ReadMemoryRegister(volatile uint32_t * reg);
@@ -56,6 +57,20 @@ public:
     void WriteRamHalfWord(uint32_t address, uint16_t data);
 
     void ReadAllRegisters(void * regs, int size);
+
+    inline void FlashClear(uint32_t address, uint32_t length) throw (QString)
+    {
+        stm->EraseRange(address,length);
+    }
+    inline void FlashMassClear() throw (QString)
+    {
+        stm->EraseMass();
+    }
+    inline void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
+    {
+        stm->WriteFlash(address,data);
+    }
+
 protected:
 
 
@@ -81,10 +96,11 @@ private:
 
     void RefreshCoreStatus();
 
-
     void ReadRam32(uint32_t address, uint16_t length,QByteArray &buffer);
     void WriteRam32(uint32_t address,const QByteArray & data);
     void WriteRam8(uint32_t address, const QByteArray & data);
+
+    stm100 * stm;
 };
 
 #endif // QSTLINK_H

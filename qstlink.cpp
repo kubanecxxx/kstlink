@@ -20,6 +20,16 @@ QStLink::QStLink(QObject *parent) :
     RefreshCoreStatus();
 
     /*
+     * choose chip
+     */
+    //if...
+    stm100::pages_t pages;
+    for (int i = 0 ; i < 128; i++)
+        pages.append(1024);
+    stm = new stm100(*this,pages);
+    stm->ReadAllRegisters();
+
+    /*
      * benchmark
      * speeds of read and write are ~50kbit/s
      */
@@ -93,8 +103,11 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
  * @param address start address
  * @param buffer input data
  */
-void QStLink::WriteRam(uint32_t address, const QByteArray & buffer)
+void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QString)
 {
+    if (address < SRAM_BASE)
+        throw(QString("WriteRam out of range"));
+
     QByteArray cpy(buffer);
 
     BOTHER("Write ram");

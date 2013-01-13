@@ -4,7 +4,6 @@
 #include <QVector>
 #include <inttypes.h>
 
-class QArm3;
 class cm3FPB
 {
 public:
