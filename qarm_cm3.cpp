@@ -3,6 +3,7 @@
 #include "armConstants.h"
 #include <QFile>
 #include "stm100.h"
+#include "stm32f10x.h"
 
 QArm3::QArm3(QObject *parent, const chip_properties_t & chip) :
     QArmAbstract(parent, chip),
@@ -11,12 +12,15 @@ QArm3::QArm3(QObject *parent, const chip_properties_t & chip) :
     Properties.chipID = chipID;
     Properties.stlink = &StProperties;
 
-    CoreStop();
-    ReadAllRegs();
     EnableFPB();
+    ReadAllRegisters();
 
-    stm100 stm(*this,1024,128);
-    bool ok = stm.VerifyErased(1);
+    /*
+     * mužu ho dat přimo do abstractu,
+     * na stm budou taky abstraktni třida s jednim rozhranim
+     * a budou se vytvářet do ní...
+     */
+
 
 /*
  *  až pojede loadování
@@ -26,39 +30,39 @@ QArm3::QArm3(QObject *parent, const chip_properties_t & chip) :
     /*
      * test - play some program into ram and step it
      */
-#if 0
-    LoadBreakPoint(0x08000006);
-    QFile file("neco.bin");
-    bool ok = file.open(QFile::ReadOnly);
+#if 1
+    //LoadBreakPoint(0x08000006);
+/*
+    QFile program("termostat.bin");
+    bool ok = program.open(QFile::ReadOnly);
+    QByteArray array = program.readAll();
+    stm100 stm(*this ,1024,128);
+    EXECUTION_TIME(stm.WriteFlash(FLASH_BASE,array); , t);
 
-    QByteArray array = file.readAll();
-    WriteRam(0x20000000,array);
-    QByteArray ver;
-    ReadRam(0x20000000,20,ver);
+    QByteArray read;
+    EXECUTION_TIME(ReadRam(FLASH_BASE,array.count(),read); , read);
 
-    WriteRegister(15,0x20000000);
-
-   ReadAllRegs();
-   CoreRun();
-   for(;;)
-   {
-   ReadAllRegs();
-   GetCoreStatus();
-   CoreStop();
-   }
-    for (;;)
+    int errs  = 0;
+    for (int i = 0 ; i < read.count(); i++)
     {
-    CoreSingleStep();
-   ReadAllRegs();
+        if (read.at(i) != array.at(i))
+            errs++;
     }
+*/
+    CoreStop();
+    ReadAllRegisters();
+    //SysReset();
+    WriteRegister(15,0x08000140);
+    ReadAllRegisters();
+    CoreRun();
 #endif
     asm("nop");
 }
 
-QArm3::cm3_regs_t QArm3::ReadAllRegs()
+QArm3::cm3_regs_t QArm3::ReadAllRegisters()
 {
     cm3_regs_t ret;
-    ReadAllRegisters(&ret,sizeof(ret));
+    QStLink::ReadAllRegisters(&ret,sizeof(ret));
     Properties.coreRegs = ret;
 
     return ret;
@@ -84,21 +88,6 @@ void QArm3::BreakpointWrite(uint32_t address) throw (QString)
 }
 
 void QArm3::BreakpointRemove(uint32_t address) throw (QString)
-{
-
-}
-
-void QArm3::FlashClear(uint32_t address, uint32_t length) throw (QString)
-{
-
-}
-
-void QArm3::FlashMassClear() throw (QString)
-{
-
-}
-
-void QArm3::FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
 {
 
 }

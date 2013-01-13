@@ -22,7 +22,8 @@ SOURCES += main.cpp \
     qarm_cm3.cpp \
     cm3/cm3fpb.cpp \
     armConstants.cpp \
-    cm3/stm100.cpp
+    cm3/stm100.cpp \
+    cm3/cm3regs.cpp
 
 HEADERS += qlibusb.h \
     qlog.h \
@@ -33,7 +34,8 @@ HEADERS += qlibusb.h \
     qarm_cm3.h \
     qarmabstract.h \
     cm3/cm3fpb.h \
-    cm3/stm100.h
+    cm3/stm100.h \
+    cm3/cm3regs.h
 
 INCLUDEPATH += cm3
 

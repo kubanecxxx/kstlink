@@ -55,8 +55,9 @@ public:
     void WriteRamByte(uint32_t address, uint8_t data);
     void WriteRamHalfWord(uint32_t address, uint16_t data);
 
-protected:
     void ReadAllRegisters(void * regs, int size);
+protected:
+
 
     //modes
     void ExitDFUMode();

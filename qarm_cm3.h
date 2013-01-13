@@ -14,16 +14,17 @@ public:
     //arm stm32 register set
     typedef struct
     {
-        uint32_t r[16];
+        uint32_t r[15];
+        uint32_t pc;
         //r15 - program counter
         //uint32_t s[32];
         uint32_t xpsr;
         uint32_t main_sp;
         uint32_t process_sp;
-        uint8_t control;
-        uint8_t faultmask;
-        uint8_t basepri;
         uint8_t primask;
+        uint8_t control;
+        uint8_t basepri;
+        uint8_t faultmask;
         uint32_t fpscr;
     } cm3_regs_t;
 
@@ -37,14 +38,10 @@ public:
     } properties_t;
 
     void WriteRam(uint32_t address, const QByteArray &buffer) throw (QString);
-    cm3_regs_t ReadAllRegs();
+    cm3_regs_t ReadAllRegisters();
 
     void BreakpointWrite(uint32_t address) throw (QString);
     void BreakpointRemove(uint32_t address) throw (QString);
-
-    void FlashClear(uint32_t address, uint32_t length) throw (QString);
-    void FlashMassClear() throw (QString);
-    void FlashWrite(uint32_t address, const QByteArray & data) throw (QString);
 signals:
 
 public slots:

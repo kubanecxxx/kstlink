@@ -43,9 +43,20 @@ public:
     virtual void BreakpointWrite(uint32_t address) throw (QString) = 0;
     virtual void BreakpointRemove(uint32_t address) throw (QString) = 0;
 
-    virtual void FlashClear(uint32_t address, uint32_t length) throw (QString) = 0;
-    virtual void FlashMassClear() throw (QString) = 0;
-    virtual void FlashWrite(uint32_t address, const QByteArray & data) throw (QString) = 0;
+    void FlashClear(uint32_t address, uint32_t length) throw (QString)
+    {
+
+    }
+
+    void FlashMassClear() throw (QString)
+    {
+
+    }
+
+    void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
+    {
+
+    }
 
 signals:
     //break reached

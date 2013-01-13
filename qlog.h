@@ -2,6 +2,7 @@
 #define QLOG_H
 
 #include <QString>
+#include <QTime>
 
 #define BOTHER(x) QLog::InfoMore(x)
 #define INFO(x) QLog::Info(x)

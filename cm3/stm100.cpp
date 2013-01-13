@@ -2,16 +2,98 @@
 #include "qarm_cm3.h"
 #include "include.h"
 #include "stm32f10x.h"
+#include "qstlink.h"
+#include <QFile>
+#include <unistd.h>
 
 #define KEY1    0x45670123
 #define KEY2    0xCDEF89AB
 
-stm100::stm100(QArm3 & father, int pageSize, int pageCount):
+stm100::stm100(QStLink & father, int pageSize, int pageCount):
     par(father),
     Size(pageSize),
     Count(pageCount)
 {
     IsLocked();
+
+    QFile file("neco.bin");
+    if (!file.open(QFile::ReadOnly))
+        ERR("Cannot open loader binary file");
+
+    loader = file.readAll();
+    file.close();
+}
+
+#define REG_RAMPOINTER      0
+#define REG_FLASHPOINTER    1
+#define REG_STATUS          2
+#define REG_DATALENGTH      4
+#define REG_PC              15
+#define SEGMENT_SIZE        0x400
+
+bool stm100::WriteFlash(uint32_t start, const QByteArray &data)
+{
+    par.CoreStop();
+    if (IsBusy())
+        return false;
+
+    QByteArray cpy(data);
+    while (cpy.count() % 2)
+        cpy.append('\0');
+
+    bool erased =EraseRange(start,start+data.count(),false);
+    if (!erased)
+        return false;
+
+    FlashUnlock();
+    IsLocked();
+    par.WriteRamRegister(&FLASH->CR,FLASH_CR_PG);
+
+    //load loader
+    par.WriteRam(SRAM_BASE, loader);
+    par.WriteRegister(REG_FLASHPOINTER,start);
+    uint32_t flash_sr = (uint64_t) &FLASH->SR;
+    par.WriteRegister(REG_STATUS, flash_sr);
+
+    /*
+     * divide into 512byte segments
+     */
+
+    int segments = (data.count() + SEGMENT_SIZE - 1) / SEGMENT_SIZE;
+
+    for (int i = 0 ; i < segments; i++ )
+    {
+        QByteArray seg = cpy.left(SEGMENT_SIZE);
+        cpy.remove(0,SEGMENT_SIZE);
+        //writeram segment
+        uint32_t ramAddr = SRAM_BASE + 0x200;
+        par.WriteRam(ramAddr, seg);
+        //setuploader
+        par.WriteRegister(REG_RAMPOINTER, ramAddr);
+        par.WriteRegister(REG_DATALENGTH,ramAddr + seg.count());
+        par.WriteRegister(REG_PC,SRAM_BASE);
+
+        //run flashloader
+        par.CoreRun();
+
+        //wait for core halted
+        int timeout = 0;
+        usleep(1000);
+        while(!par.IsCoreHalted())
+        {
+            usleep(5000);
+            if(timeout++ == 200)
+            {
+                WARN("Flash writing timeout");
+                return false;
+            }
+        }
+    }
+
+    par.WriteRamRegister(&FLASH->CR,0);
+    FlashLock();
+
+    return true;
 }
 
 bool stm100::IsLocked()
