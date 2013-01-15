@@ -10,13 +10,13 @@
 #define KEY1    0x45670123
 #define KEY2    0xCDEF89AB
 
+class cm3FPB;
 class QStLink;
 class stm100
 {
 public:
     typedef QVector<uint32_t> pages_t;
     stm100(QStLink & par, const pages_t & Pages);
-    virtual ~stm100();
 
     virtual void EraseMass() throw (QString);
     virtual void EraseRange(uint32_t start, uint32_t stop, bool verify = false) throw (QString);
@@ -29,8 +29,7 @@ public:
     } reg_t;
     typedef QVector<reg_t> regs_t;
     const regs_t& ReadAllRegisters(void);
-    void ReadAllRegisters(uint32_t * rawData);
-
+    virtual void ReadAllRegisters(uint32_t * rawData);
 protected:
     QStLink & par;
     const pages_t pages;
@@ -65,9 +64,10 @@ private:
         uint8_t basepri;
         uint8_t faultmask;
         uint32_t fpscr;
+        uint32_t vata[32];
     } cm3_regs_t;
 
-    cm3_regs_t * regs_human;
+    cm3_regs_t regs_human;
 };
 
 #endif // STM100_H

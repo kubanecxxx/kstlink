@@ -1,6 +1,10 @@
 #include <QCoreApplication>
-#include <qarm_cm3.h>
-//#include "armConstants.h"
+#include <include.h>
+#include "qstlink.h"
+#include "temp.h"
+#include <QFile>
+#include "QDebug"
+#include "gdbserver.h"
 
 unsigned int log_level = 3;
 
@@ -22,9 +26,50 @@ int main(int argc, char *argv[])
     deb.DCRSR = _DCRSR;
     deb.DBGKEY = _DBGKEY;
 */
+#if 1
+    try
+    {
+        new GdbServer(&a);
+    } catch (QString data)
+    {
+        WARN(data);
+    }
+#else
 
-    QArmAbstract::chip_properties_t chip;
-    new QStLink(&a);
+    QStLink * link;
+    try {
+        link = new QStLink(&a);
+    }
+    catch(QString data)
+    {
+        ERR(data);
+    }
 
+    temp * jo = new temp(&a);
+
+    QObject::connect(link,SIGNAL(Erasing(int)),jo,SLOT(erasing(int)));
+    QObject::connect(link,SIGNAL(Flashing(int)),jo,SLOT(flashing(int)));
+    QObject::connect(link,SIGNAL(Reading(int)),jo,SLOT(read(int)));
+
+
+
+    QFile file("ch.bin");
+    file.open(QFile::ReadOnly);
+
+    QByteArray array = file.readAll();
+
+    link->FlashWrite(FLASH_BASE,array);
+    bool ok = link->FlashVerify(array);
+
+    if (ok)
+        qDebug() << "Success";
+    else
+        qDebug() << "Failed";
+
+    link->SysReset();
+    link->CoreRun();
+#endif
     return a.exec();
 }
+
+

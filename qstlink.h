@@ -49,6 +49,11 @@ public:
     void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer);
     void WriteRam(uint32_t address, const QByteArray & buffer) throw (QString);
 
+    void ReadAllRegisters(uint32_t * regs)
+    {
+        stm->ReadAllRegisters(regs);
+    }
+
     uint32_t ReadMemoryWord(uint32_t address);
     uint32_t ReadMemoryRegister(volatile uint32_t * reg);
     void WriteRamRegister(volatile uint32_t * reg,uint32_t val);
@@ -56,7 +61,7 @@ public:
     void WriteRamByte(uint32_t address, uint8_t data);
     void WriteRamHalfWord(uint32_t address, uint16_t data);
 
-    void ReadAllRegisters(void * regs, int size);
+    bool FlashVerify(const QByteArray & data);
 
     inline void FlashClear(uint32_t address, uint32_t length) throw (QString)
     {
@@ -70,9 +75,17 @@ public:
     {
         stm->WriteFlash(address,data);
     }
+    bool BreakpointWrite(uint32_t address);
+    bool BreakpointRemove(uint32_t address);
 
-protected:
+signals:
+    void Erasing(int percent);
+    void Flashing(int percent);
+    void Reading(int percent);
+    void BreakpointReached(uint32_t address);
 
+private:    
+    void ReadAllRegisters(void * regs, int size);
 
     //modes
     void ExitDFUMode();
@@ -87,7 +100,7 @@ protected:
     QLibusb * usb;
 
     stlink_properties_t StProperties;
-private:
+
     void Command (const QByteArray & txbuf);
     void Command (const QByteArray &txbuf , QByteArray & rxbuf, int rxsize);
 
@@ -100,7 +113,30 @@ private:
     void WriteRam32(uint32_t address,const QByteArray & data);
     void WriteRam8(uint32_t address, const QByteArray & data);
 
+    void ErasingProgress(int percent){emit Erasing(percent);}
+    void ProgrammingProcess(int percent) {emit Flashing(percent);}
+
     stm100 * stm;
+
+    friend class stm100;
+    friend class cm3FPB;
+
+private:
+    void EnableFPB();
+    typedef struct
+    {
+        bool active;
+        uint32_t address;
+    } break_t;
+
+    void CodeComparatorCount_();
+    void LiteralComparatorCount_();
+    int GetFreeBreakpoint() const;
+
+    int lit_count;
+    QVector<break_t> breaks;
+
+     bool IsFreeBreakpoint() const;
 };
 
 #endif // QSTLINK_H

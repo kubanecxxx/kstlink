@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core
+QT       += core network
 
 QT       -= gui
 
@@ -19,9 +19,10 @@ SOURCES += main.cpp \
     qlibusb.cpp \
     qlog.cpp \
     qstlink.cpp \
-  #  cm3/cm3fpb.cpp \
     armConstants.cpp \
-    cm3/stm100.cpp
+    cm3/stm100.cpp \
+    temp.cpp \
+    gdbserver.cpp
 
 HEADERS += qlibusb.h \
     qlog.h \
@@ -29,8 +30,9 @@ HEADERS += qlibusb.h \
     qstlink.h \
     stlinkCommands.h \
     armConstants.h \
-    cm3/cm3fpb.h \
-    cm3/stm100.h
+    cm3/stm100.h \
+    temp.h \
+    gdbserver.h
 
 INCLUDEPATH += cm3
 

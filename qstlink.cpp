@@ -3,13 +3,12 @@
 #include <QtEndian>
 #include <QTime>
 #include "stlinkCommands.h"
+#include "armConstants.h"
 
 QStLink::QStLink(QObject *parent) :
-    QObject(parent)
+    QObject(parent),
+    usb(new QLibusb(this))
 {
-    usb = new QLibusb(this);
-
-
     /*
      * init Properties struct;
      */
@@ -27,7 +26,19 @@ QStLink::QStLink(QObject *parent) :
     for (int i = 0 ; i < 128; i++)
         pages.append(1024);
     stm = new stm100(*this,pages);
-    stm->ReadAllRegisters();
+
+    uint32_t temp = ReadMemoryWord(REGS.FP_CTRL);
+    temp = (temp >> 4 & 0xF);
+    breaks.resize(temp);
+    temp = ReadMemoryWord(REGS.FP_CTRL);
+    temp = (temp >> 8) & 0xF;
+    lit_count = temp;
+
+    for (int i = 0 ; i < breaks.count(); i++)
+    {
+        breaks[i].active = false;
+        breaks[i].address = 0;
+    }
 
     /*
      * benchmark
@@ -49,6 +60,50 @@ QStLink::QStLink(QObject *parent) :
 
     rx.clear();
 #endif
+}
+
+bool QStLink::BreakpointWrite(uint32_t address)
+{
+    if (!IsFreeBreakpoint())
+        return false;
+
+    int b = GetFreeBreakpoint();
+
+    breaks[b].active = true;
+    breaks[b].address = address;
+
+    QByteArray tx,rx;
+    tx.append(STLINK_DEBUG_SETFP);
+    tx.append(b);
+    FillArrayEndian32(tx,address);
+    tx.append(2);
+    CommandDebug(tx,rx,2);
+
+    return true;
+}
+
+bool QStLink::BreakpointRemove(uint32_t address)
+{
+
+}
+
+int QStLink::GetFreeBreakpoint() const
+{
+    for (int i = 0 ; i < breaks.count(); i++)
+    {
+        if (breaks[i].active == false)
+            return i;
+    }
+
+    return -1;
+}
+
+bool QStLink::IsFreeBreakpoint() const
+{
+    if (GetFreeBreakpoint() == -1)
+        return false;
+    else
+        return true;
 }
 
 /**
@@ -73,6 +128,7 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
     int temp = length;
     int size;
     //divide into smaller segments
+    int graph = 0, graph2 = (length + SEGMENT_SIZE -1) /SEGMENT_SIZE;
     while(temp > 0)
     {
         if (temp > SEGMENT_SIZE)
@@ -91,6 +147,7 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
         buffer.append(array);
 
         address += SEGMENT_SIZE;
+        emit Reading((++graph * 100) / graph2);
     }
 
     //delete added bytes
@@ -143,6 +200,20 @@ void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QStri
 
         address = prev_address + SEGMENT_SIZE;
     }
+}
+
+bool QStLink::FlashVerify(const QByteArray &data)
+{
+    QByteArray rx;
+    ReadRam(FLASH_BASE,data.count(), rx);
+
+    for (int i = 0 ; i < rx.count(); i++)
+    {
+        if (rx.at(i) != data.at(i))
+            return false;
+    }
+
+    return true;
 }
 
 void QStLink::WriteRam32(uint32_t address,const QByteArray &data)
@@ -221,6 +292,7 @@ void QStLink::WriteRegister(uint8_t reg_idx, uint32_t data)
     FillArrayEndian32(tx,data);
     CommandDebug(tx,rx,2);
 }
+
 
 uint32_t QStLink::ReadRegister(uint8_t reg_idx)
 {

@@ -1,5 +1,4 @@
 #include "stm100.h"
-#include "qarm_cm3.h"
 #include "include.h"
 #include "stm32f10x.h"
 #include "qstlink.h"
@@ -47,15 +46,7 @@ stm100::stm100(QStLink & father, const pages_t & Pages):
     registers.push_back(temp);
     temp.Reg = QString("fpscr");
     registers.push_back(temp);
-
-    regs_human = (cm3_regs_t *)malloc(sizeof(cm3_regs_t) + 256);
 }
-
-stm100::~stm100()
-{
-    free(regs_human);
-}
-
 void stm100::ReadAllRegisters(uint32_t * rawData)
 {
     ReadAllRegisters();
@@ -74,13 +65,14 @@ const stm100::regs_t & stm100::ReadAllRegisters()
         registers[i].val = temp[i];
     }
 
-    memcpy(regs_human, temp,  sizeof(cm3_regs_t));
+    memcpy(&regs_human, temp,  sizeof(cm3_regs_t));
 
     return registers;
 }
 
 void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
 {
+    par.SysReset();
     par.CoreStop();
     if (IsBusy())
         throw(QString("stm100 WriteFlash memory is busy"));
@@ -107,6 +99,9 @@ void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
 
     int segments = (data.count() + SEGMENT_SIZE - 1) / SEGMENT_SIZE;
 
+    int graph = 0;
+    int graph2 = segments;
+
     for (int i = 0 ; i < segments; i++ )
     {
         QByteArray seg = cpy.left(SEGMENT_SIZE);
@@ -119,6 +114,10 @@ void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
         par.WriteRegister(REG_DATALENGTH,ramAddr + seg.count());
         par.WriteRegister(REG_PC,SRAM_BASE);
 
+        //force thumb mode
+        uint32_t xpsr = par.ReadRegister(16);
+        xpsr |= 1<<24;
+        par.WriteRegister(16,xpsr);
         //run flashloader
         par.CoreRun();
 
@@ -133,6 +132,8 @@ void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
                 throw(QString("stm100 WriteFlash memory timeout"));
             }
         }
+
+        par.ProgrammingProcess((++graph * 100)/graph2);
     }
 
     par.WriteRamRegister(&FLASH->CR,0);
@@ -166,6 +167,8 @@ void stm100::EraseRange(uint32_t start, uint32_t stop, bool verify) throw (QStri
 {
     uint32_t firstpage = (start - FLASH_BASE) / this->Size;
     uint32_t pagecount = (stop - start) / this->Size + 1;
+    int graph = pagecount;
+    int graph2 = 0;
 
     while(pagecount--)
     {
@@ -176,6 +179,7 @@ void stm100::EraseRange(uint32_t start, uint32_t stop, bool verify) throw (QStri
                 throw(QString("stm100 EraseRange %1 page verification failed").arg(firstpage));
 
         firstpage++;
+        par.ErasingProgress((++graph2 *100)/graph);
     }
 }
 
