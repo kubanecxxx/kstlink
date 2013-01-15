@@ -20,6 +20,10 @@ public slots:
 private slots:
     void newConnection();
     void ReadyRead(void);
+    void CoreHalted(uint32_t addr);
+
+    void Erasing(int perc);
+    void Flashing(int perc);
 
 private:
     QStLink * stlink;
@@ -28,7 +32,7 @@ private:
 
     typedef QVector<QByteArray> params_t;
 
-    static void MakePacket(QByteArray & data);
+    static void MakePacket(QByteArray & data, QByteArray * binary = NULL);
     static bool DecodePacket(QByteArray & data);
     params_t ParseParams(const QByteArray & data);
 
@@ -38,6 +42,8 @@ private:
 
     QByteArray ans;
     QByteArray input;
+    QTcpSocket * soc;
+    QByteArray FlashProgram;
 };
 
 #endif // GDBSERVER_H

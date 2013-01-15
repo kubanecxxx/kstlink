@@ -53,8 +53,8 @@ int main(int argc, char *argv[])
 
 
 
-    QFile file("ch.bin");
-    file.open(QFile::ReadOnly);
+    QFile file("termostat.bin");
+    bool co = file.open(QFile::ReadOnly);
 
     QByteArray array = file.readAll();
 

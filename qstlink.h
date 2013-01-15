@@ -6,6 +6,7 @@
 #include "include.h"
 #include "QByteArray"
 #include "stm100.h"
+#include <QTimer>
 
 class QStLink : public QObject
 {
@@ -77,15 +78,24 @@ public:
     }
     bool BreakpointWrite(uint32_t address);
     bool BreakpointRemove(uint32_t address);
+    void BreakpointRemoveAll();
 
 signals:
     void Erasing(int percent);
     void Flashing(int percent);
     void Reading(int percent);
-    void BreakpointReached(uint32_t address);
+    void CoreHalted(uint32_t address);
+    void CoreRunning();
+
+private slots:
+    void timeout (void);
 
 private:    
     void ReadAllRegisters(void * regs, int size);
+
+    QLibusb * usb;
+
+    QTimer & timer;
 
     //modes
     void ExitDFUMode();
@@ -96,8 +106,6 @@ private:
 
     uint32_t ReadUint32(const QByteArray & array);
     uint16_t ReadUint16(const QByteArray & array);
-
-    QLibusb * usb;
 
     stlink_properties_t StProperties;
 

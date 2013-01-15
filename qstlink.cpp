@@ -7,7 +7,8 @@
 
 QStLink::QStLink(QObject *parent) :
     QObject(parent),
-    usb(new QLibusb(this))
+    usb(new QLibusb(this)),
+    timer(*new QTimer(this))
 {
     /*
      * init Properties struct;
@@ -34,11 +35,10 @@ QStLink::QStLink(QObject *parent) :
     temp = (temp >> 8) & 0xF;
     lit_count = temp;
 
-    for (int i = 0 ; i < breaks.count(); i++)
-    {
-        breaks[i].active = false;
-        breaks[i].address = 0;
-    }
+    BreakpointRemoveAll();
+
+    timer.start(100);
+    connect(&timer,SIGNAL(timeout()),this,SLOT(timeout()));
 
     /*
      * benchmark
@@ -62,6 +62,22 @@ QStLink::QStLink(QObject *parent) :
 #endif
 }
 
+//timeout for read core status
+void QStLink::timeout()
+{
+    bool temp = IsCoreHalted();
+
+    if (temp)
+    {
+        uint32_t addr  = ReadRegister(15);
+        emit CoreHalted(addr);
+    }
+    else
+    {
+        emit CoreRunning();
+    }
+}
+
 bool QStLink::BreakpointWrite(uint32_t address)
 {
     if (!IsFreeBreakpoint())
@@ -71,20 +87,55 @@ bool QStLink::BreakpointWrite(uint32_t address)
 
     breaks[b].active = true;
     breaks[b].address = address;
-
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_SETFP);
     tx.append(b);
     FillArrayEndian32(tx,address);
-    tx.append(2);
+
+    int i;
+    if (address % 4 == 0)
+        i = 0;
+    else
+        i = 1;
+
+    tx.append(i);
     CommandDebug(tx,rx,2);
 
     return true;
 }
 
+//clear all breakpoints
+void QStLink::BreakpointRemoveAll()
+{
+    for (int i = 0 ; i< breaks.count(); i++)
+    {
+        QByteArray tx,rx;
+        tx.append(STLINK_DEBUG_CLEARFP);
+        tx.append(i);
+        CommandDebug(tx,rx,2);
+
+        breaks[i].active = false;
+        breaks[i].address = 0;
+    }
+}
+
 bool QStLink::BreakpointRemove(uint32_t address)
 {
+    for  (int i = 0; i < breaks.count(); i++)
+    {
+        if (breaks[i].address == address && breaks[i].active)
+        {
+            QByteArray tx,rx;
+            tx.append(STLINK_DEBUG_CLEARFP);
+            tx.append(i);
+            CommandDebug(tx,rx,2);
+            breaks[i].active = false;
 
+            return true;
+        }
+    }
+
+    return false;
 }
 
 int QStLink::GetFreeBreakpoint() const

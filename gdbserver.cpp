@@ -14,6 +14,7 @@ GdbServer::GdbServer(QObject *parent) :
 {
 
     connect(server,SIGNAL(newConnection()),this,SLOT(newConnection()));
+    connect(stlink,SIGNAL(CoreHalted(uint32_t)),this,SLOT(CoreHalted(uint32_t)));
     bool ok = server->listen(QHostAddress::Any,port);
 
     if (ok)
@@ -26,17 +27,11 @@ GdbServer::GdbServer(QObject *parent) :
         ERR("Cannot open listening port");
     }
 
-    stlink->SysReset();
- //   stlink->BreakpointWrite(0x80020c2);
-    stlink->CoreRun();
-
-    while(1)
-    {
-        stlink->GetCoreStatus();
-    }
+    connect(stlink,SIGNAL(Erasing(int)),this,SLOT(Erasing(int)));
+    connect(stlink,SIGNAL(Flashing(int)),this,SLOT(Flashing(int)));
 }
 
-void GdbServer::MakePacket(QByteArray &checksum)
+void GdbServer::MakePacket(QByteArray &checksum,QByteArray * binary)
 {
     uint8_t check = 0;
 
@@ -48,6 +43,10 @@ void GdbServer::MakePacket(QByteArray &checksum)
     GDB_SEND(checksum);
     checksum.prepend('$');
     checksum.prepend('+');
+    if (binary)
+    {
+        checksum.append(*binary);
+    }
     checksum.append('#');
 
     QString temp = QString("%1").arg(check,2,16,QChar('0'));
@@ -68,6 +67,11 @@ bool GdbServer::DecodePacket(QByteArray &data)
 {
     QByteArray temp(data);
 
+    if (data.contains("vFlashWrite"))
+    {
+        asm("nop");
+    }
+
     int start = temp.indexOf('$');
     int stop = temp.indexOf('#');
 
@@ -77,6 +81,28 @@ bool GdbServer::DecodePacket(QByteArray &data)
     temp = temp.mid(start + 1, stop-start -1);
 
     data = temp;
+
+    int pre = 0;
+    for (int i = data.indexOf('}') ; i < data.count(); i = data.indexOf('}',i + 1))
+    {
+        if (i == -1)
+            break;
+        char temp = data.at(i+1);
+        QByteArray arr = "}";
+        arr.append(temp);
+        QByteArray dva;
+        dva.append((char)(temp ^ 0x20));
+        data.replace(arr,dva);
+    }
+
+    /*
+    for (int i = 0 ; i < data.count(); i++)
+    {
+        if (data.at(i) == '')
+    }
+    */
+
+
     return true;
 }
 
@@ -85,7 +111,7 @@ void GdbServer::ReadyRead()
     QTcpSocket * client = qobject_cast<QTcpSocket *>(sender());
     input = client->readAll();
 
-    //special packet +-
+    //special packet +- interrupt
     if (input == "+")
         return;
 
@@ -97,6 +123,16 @@ void GdbServer::ReadyRead()
         return;
     }
 
+    if (input.at(0) == 3 && input.count() == 1)
+    {
+        stlink->CoreStop();
+        ans = "S05";
+        MakePacket(ans);
+        client->write(ans);
+        INFO("Interrupt");
+        return;
+    }
+
     if (!DecodePacket(input))
         return;
 
@@ -104,24 +140,67 @@ void GdbServer::ReadyRead()
     processPacket(client,input);
 }
 
+class sep_t
+{
+public:
+    sep_t()
+    {
+        separator = 0;
+        value = 0;
+    }
+    char separator;
+    int value;
+
+    bool operator<(const sep_t & other) const
+    {
+        return value < other.value;
+    }
+};
+
+
+
 GdbServer::params_t GdbServer::ParseParams(const QByteArray &data)
 {
     params_t temp;
     QByteArray ar(data);
     ar.remove(0,1);
 
-    int i,j;
-    while((i = ar.indexOf(',')) > 0 || (j = ar.indexOf('=')) >  0)
+    QByteArray separators = ",=:";
+    QVector<sep_t> vec;
+
+    int k = 1;
+    while (k)
     {
-        int k;
-        if (i != -1)
-            k = i;
-        else if (j != -1)
-            k = j;
+        for(int j = 0 ; j < separators.count(); j++)
+        {
+            char sep = separators.at(j);
+            if (ar.indexOf(sep) != -1)
+            {
+                sep_t temp;
+                temp.separator = sep;
+                temp.value = ar.indexOf(sep);
+                vec.push_back(temp);
+            }
+        }
+        if (vec.isEmpty())
+            break;
+
+        qSort(vec);
+        k = vec[0].value;
+        char sep = vec[0].separator;
+        vec.clear();
+
         QByteArray t;
         t = ar.left(k);
         ar.remove(0,k + 1);
         temp.push_back(t);
+
+        if (sep == ':')
+        {
+            //binary data
+            temp.push_back(ar);
+            return temp;
+        }
     }
 
     temp.push_back(ar);
@@ -179,26 +258,41 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         ans = arr.toHex();
         MakePacket(ans);
     }
-
     //memory read
     else if (data.startsWith("m"))
     {
         params_t pars = ParseParams(data);
         uint32_t addr = (pars[0]).toInt(NULL,16);
-        uint32_t len = pars[1].toInt();
+        uint32_t len = pars[1].toInt(NULL,16);
         ans.clear();
 
         stlink->ReadRam(addr,len,ans);
         ans = ans.toHex();
         MakePacket(ans);
     }
+    //memory write
+    else if (data.startsWith("M") || data.startsWith("X"))
+    {
+        params_t pars = ParseParams(data);
+        uint32_t addr = (pars[0]).toInt(NULL,16);
+        uint32_t len = pars[1].toInt(NULL,16);
+        if (len > 0)
+        {
+            QByteArray buf = pars[2];
+            stlink->WriteRam(addr,buf);
+        }
+        ans.clear();
 
+
+        ans = "OK";
+        MakePacket(ans);
+    }
     //read register
     else if (data.startsWith("p"))
     {
         params_t pars = ParseParams(data);
 
-        uint32_t idx = pars[0].toInt();
+        uint32_t idx = pars[0].toInt(NULL,16);
 
         if (idx == 18)
             idx = 20;
@@ -215,7 +309,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     else if (data.startsWith("P"))
     {
         params_t pars = ParseParams(data);
-        uint8_t reg = pars[0].toInt();
+        uint8_t reg = pars[0].toInt(NULL,16);
         QByteArray temp = QByteArray::fromHex(pars[1]);
         uint32_t val = qFromLittleEndian<uint32_t>((uchar*)temp.constData());
 
@@ -251,7 +345,61 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             //address where to start
         }
         ans = "+";
+        soc = client;
         stlink->CoreRun();
+    }
+    //kill program
+    else if (data == "k")
+    {
+        ans = "+";
+        stlink->CoreRun();
+    }
+    else if (data.startsWith("vFlashErase"))
+    {
+        params_t pars = ParseParams(data);
+        uint32_t addr = data.mid(12,8).toInt(NULL,16);
+        uint32_t len = data.mid(21,8).toInt(NULL,16);
+
+        //stlink->FlashClear(addr,len);
+        FlashProgram.clear();
+        ans = "OK";
+        MakePacket(ans);
+    }
+    else if (data.startsWith("vFlashWrite"))
+    {
+ //       params_t pars = ParseParams(data);
+ //       uint32_t addr = pars[1].toInt(NULL,16);
+ //      FlashProgram.append(pars[2]);
+        FlashProgram.append(data.mid(20));
+
+
+
+        ans  = "OK";
+        MakePacket(ans);
+
+    }
+    else if (data.startsWith("vFlashDone"))
+    {
+        int temp = FlashProgram.count();
+        QFile file("termostat.bin");
+        bool ok  = file.open(QFile::ReadOnly);
+        QByteArray arr = file.readAll();
+        int tmep = arr.count();
+        int cantr = 0;
+     /*
+        for (int i = 0 ; i < temp ; i++)
+        {
+            if (FlashProgram.at(i) != arr.at(i))
+            {
+                asm("nop");
+                cantr++;
+            }
+        }
+*/
+        stlink->FlashWrite(FLASH_BASE,FlashProgram);
+        ans  = "OK";
+        MakePacket(ans);
+        asm("nop");
     }
     //GDB_SEND(ans.toHex());
     client->write(ans);
@@ -261,10 +409,11 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
 {
     QByteArray ans;
 
-    if (data ==("qSupported:qRelocInsn+"))
+    if (data.contains( "qSupported:"))
     {
         ans.append("PacketSize=3fff");
         ans.append(";qXfer:memory-map:read+");
+        stlink->BreakpointRemoveAll();
         MakePacket(ans);
     }
     else if (data == ("qC") || data == "qSymbol::")
@@ -289,6 +438,11 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         ans = "l";
         MakePacket(ans);
     }
+    else if (data == "qfThreadInfo")
+    {
+        ans = "l";
+        MakePacket(ans);
+    }
     else if (data.startsWith("qRcmd"))
     {
         params_t pars = ParseParams(data);
@@ -296,11 +450,17 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         if (arr == "reset")
         {
             stlink->SysReset();
+            stlink->BreakpointRemoveAll();
+        }
+        else if (arr == "Reset")
+        {
+            stlink->SysReset();
         }
 
         ans = "OK";
         MakePacket(ans);
     }
+
     return ans;
 }
 
@@ -340,4 +500,35 @@ QByteArray GdbServer::processBreakpointPacket(const QByteArray &data)
     MakePacket(ans);
 
     return ans;
+}
+
+void GdbServer::CoreHalted(uint32_t addr)
+{
+    //last command was run
+    if (input == "c")
+    {
+        ans = "S05";
+        INFO("Breakpoint");
+        GDB_SEND(ans);
+        MakePacket(ans);
+        soc->write(ans);
+    }
+}
+
+void GdbServer::Erasing(int perc)
+{
+    QByteArray temp = "O";
+    temp.append(QString("Erasing progress: %1\%").arg(perc));
+    MakePacket(temp);
+   // soc->write(temp);
+    qDebug() << QString("Erasing progress: %1\%").arg(perc);
+}
+
+void GdbServer::Flashing(int perc)
+{
+    QByteArray temp = "O";
+    temp.append(QString("Flashing progress: %1\%").arg(perc));
+    MakePacket(temp);
+    qDebug() << QString("Flashing progress: %1\%").arg(perc);
+   // soc->write(temp);
 }
