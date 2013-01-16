@@ -10,6 +10,7 @@ unsigned int log_level = 3;
 
 int main(int argc, char *argv[])
 {
+    Q_INIT_RESOURCE(resources);
     QCoreApplication a(argc, argv);
 
     //parse input params
@@ -20,10 +21,13 @@ int main(int argc, char *argv[])
     }
     input_pars.remove(0);
 
+
+
     QByteArray mcu;
     QByteArray file;
     bool flashonly = false;
     bool notverify = false;
+    bool verifyonly = false;
     int port = 4242;
     for (int i = 0 ; i< input_pars.count(); i++)
     {
@@ -48,12 +52,23 @@ int main(int argc, char *argv[])
             QByteArray temp = input_pars[i].mid(2);
             port = temp.toInt();
         }
+        else if (input_pars[i] == "-verifyonly")
+        {
+            verifyonly = true;
+        }
     }
 
+    if (flashonly && verifyonly)
+    {
+        qDebug() << "verifyonly ignored";
+        verifyonly = false;
+    }
+/*
     if(mcu.isEmpty())
         qFatal("You must specify mcu with -mprefix");
 
-    if (flashonly)
+    else */
+    if (flashonly || verifyonly)
     {
         //run only flasher and exit
         if (file.isEmpty())
@@ -65,7 +80,7 @@ int main(int argc, char *argv[])
 
         try
         {
-            new flasher(&a,fil,mcu);
+            new flasher(&a,fil,mcu, verifyonly);
         } catch (QString data)
         {
             ERR(data);

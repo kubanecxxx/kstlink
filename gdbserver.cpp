@@ -18,6 +18,12 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     connect(stlink,SIGNAL(CoreHalted(uint32_t)),this,SLOT(CoreHalted(uint32_t)));
     bool ok = server->listen(QHostAddress::Any,port);
 
+    qDebug() << QString("Core status: " + stlink->GetCoreStatus());
+    qDebug() << QString("Core ID: 0x%1").arg(stlink->GetCoreID(),0,16);
+    qDebug() << QString("Chip ID: 0x%1").arg(stlink->GetChipID(),0,16);
+    qDebug() << QString("Breakpoint count: %1").arg(stlink->GetBreakpointCount());
+    qDebug() << QString("Chip name: " + stlink->GetMcuName());
+
     if (ok)
     {
         INFO(QString("Listening on port %1").arg(port));
@@ -87,12 +93,16 @@ bool GdbServer::DecodePacket(QByteArray &data)
     {
         if (i == -1)
             break;
-        char temp = data.at(i+1);
-        QByteArray arr = "}";
-        arr.append(temp);
-        QByteArray dva;
-        dva.append((char)(temp ^ 0x20));
-        data.replace(arr,dva);
+        if ((data.at(i + 1) == ('#' ^ 0x20)) || (data.at(i + 1) == ('$' ^ 0x20))
+                || (data.at(i + 1) == ('}' ^ 0x20))  )
+        {
+            char temp = data.at(i+1);
+            QByteArray arr = "}";
+            arr.append(temp);
+            QByteArray dva;
+            dva.append((char)(temp ^ 0x20));
+            data.replace(arr,dva);
+        }
     }
 
     return true;
@@ -128,8 +138,14 @@ void GdbServer::ReadyRead()
     if (!DecodePacket(input))
         return;
 
-    //process packet
-    processPacket(client,input);
+    try {
+        //process packet
+        processPacket(client,input);
+    } catch (QString data)
+    {
+        WARN(data);
+    }
+
 }
 
 class sep_t
@@ -359,7 +375,33 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     }
     else if (data.startsWith("vFlashWrite"))
     {
+        uint32_t addr = (data.mid(12,data.indexOf(":",12)-12)).toInt(NULL,16) - FLASH_BASE;
+
+        if (addr)
+        {
+            int64_t temp = addr - lastAddress;
+            while(temp)
+            {
+                temp = addr - lastAddress;
+                addr++;
+                FlashProgram.append('\0');
+            }
+        }
+
         FlashProgram.append(data.mid(20));
+#if 0
+        for (int i = 0 ; i < FlashProgram.count(); i++)
+        {
+            QFile file("ch.bin");
+            file.open(QFile::ReadOnly);
+            QByteArray temp = file.readAll();
+            if (FlashProgram.at(i) != temp.at(i))
+            {
+                asm("nop");
+            }
+        }
+#endif
+        lastAddress = FlashProgram.count();
         ans  = "OK";
         MakePacket(ans);
     }
@@ -406,13 +448,11 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     }
     else if (data == ("qXfer:memory-map:read::0,fff"))
     {
-        QFile map("map.xml");
-        map.open(QFile::ReadOnly);
-        ans = map.readAll();
+        ans = stlink->GetMapFile();
         ans.prepend('m');
         MakePacket(ans);
     }
-    else if (data == "qXfer:memory-map:read::27d,d82")
+    else if (data.startsWith("qXfer:memory-map:read::27"))
     {
         ans = "l";
         MakePacket(ans);
@@ -434,6 +474,23 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         else if (arr == "Reset")
         {
             stlink->SysReset();
+        }
+        else if (arr.startsWith("verify"))
+        {
+            arr.remove(0,7);
+            QFile file(arr);
+            if (file.open(QFile::ReadOnly))
+            {
+                bool ok = stlink->FlashVerify(file.readAll());
+                if (ok)
+                    qDebug() << "Verif ok";
+                else
+                    qDebug() << "Verif failed";
+            }
+            else
+            {
+                qDebug() << "Bad file";
+            }
         }
 
         ans = "OK";

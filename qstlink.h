@@ -28,6 +28,7 @@ public:
         QString CoreState;
         version_t stlinkVersion;
         int coreID;
+        int chipID;
     } stlink_properties_t;
 
     //info
@@ -35,8 +36,11 @@ public:
     version_t GetStlinkVersion();
     bool IsCoreHalted();
     int GetCoreID();
+    inline int GetChipID(){return StProperties.chipID;}
     inline QString GetCoreStatus() {RefreshCoreStatus(); return StProperties.CoreState;}
     inline stlink_properties_t GetState(){return StProperties;}
+    inline int GetBreakpointCount() {return breaks.count();}
+    inline QString GetMcuName() {return Name;}
 
     //core commands
     void CoreStop();
@@ -80,12 +84,15 @@ public:
     bool BreakpointRemove(uint32_t address);
     void BreakpointRemoveAll();
 
+    QByteArray GetMapFile();
+
 signals:
     void Erasing(int percent);
     void Flashing(int percent);
     void Reading(int percent);
     void CoreHalted(uint32_t address);
     void CoreRunning();
+    void Verification(bool ok);
 
 private slots:
     void timeout (void);
@@ -96,6 +103,7 @@ private:
     QLibusb * usb;
 
     QTimer & timer;
+    QString Name;
 
     //modes
     void ExitDFUMode();
@@ -127,8 +135,6 @@ private:
     stm100 * stm;
 
     friend class stm100;
-    friend class cm3FPB;
-
 private:
     void EnableFPB();
     typedef struct
@@ -145,6 +151,8 @@ private:
     QVector<break_t> breaks;
 
      bool IsFreeBreakpoint() const;
+
+     QByteArray MapFile;
 };
 
 #endif // QSTLINK_H

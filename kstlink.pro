@@ -19,10 +19,11 @@ SOURCES += main.cpp \
     qlibusb.cpp \
     qlog.cpp \
     qstlink.cpp \
-    armConstants.cpp \
     cm3/stm100.cpp \
     gdbserver.cpp \
-    flasher.cpp
+    flasher.cpp \
+    chips.cpp \
+    cm3/stm407.cpp
 
 HEADERS += qlibusb.h \
     qlog.h \
@@ -32,9 +33,14 @@ HEADERS += qlibusb.h \
     armConstants.h \
     cm3/stm100.h \
     gdbserver.h \
-    flasher.h
+    flasher.h \
+    chips.h \
+    cm3/stm407.h
 
 INCLUDEPATH += cm3
 
 unix:INCLUDEPATH += /usr/include/libusb-1.0
 unix:LIBS += -lusb-1.0
+
+RESOURCES += \
+    resources.qrc

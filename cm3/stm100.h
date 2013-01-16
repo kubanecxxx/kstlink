@@ -10,7 +10,6 @@
 #define KEY1    0x45670123
 #define KEY2    0xCDEF89AB
 
-class cm3FPB;
 class QStLink;
 class stm100
 {

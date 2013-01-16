@@ -47,6 +47,7 @@ private:
     QByteArray FlashProgram;
 
     const bool NotVerify;
+    uint32_t lastAddress;
 };
 
 #endif // GDBSERVER_H

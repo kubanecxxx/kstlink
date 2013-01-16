@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/xml">
+        <file>map.xml</file>
+    </qresource>
+    <qresource prefix="/loaders">
+        <file>loaders/stm100/stm100.bin</file>
+    </qresource>
+</RCC>

@@ -4,7 +4,7 @@
 #include <qstlink.h>
 #include <QCoreApplication>
 
-flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu) :
+flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, bool verifonly) :
     QObject(parent),
     file(BinaryFile),
     stlink(*new QStLink(this,mcu))
@@ -17,9 +17,23 @@ flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu) :
     connect(&stlink,SIGNAL(Reading(int)),this,SLOT(read(int)));
 
     QByteArray data = file.readAll();
-    stlink.FlashWrite(FLASH_BASE,data);
-    stlink.SysReset();
-    stlink.FlashVerify(data);
+    if (!verifonly)
+    {
+        stlink.FlashWrite(FLASH_BASE,data);
+        stlink.SysReset();
+    }
+    bool ok = stlink.FlashVerify(data);
+
+    if (ok)
+    {
+        stlink.BreakpointRemoveAll();
+        stlink.CoreRun();
+        qDebug() << "Verification OK";
+    }
+    else
+    {
+        qDebug() << "Verification failed";
+    }
 }
 
 void flasher::flashing(int percent)
@@ -36,14 +50,6 @@ void flasher::erasing(int percent)
 
 void flasher::read(int percent)
 {
-    QString format = QString("Reading progress: %1").arg(percent);
+    QString format = QString("Verifying progress: %1").arg(percent);
     qDebug() << format;
-
-    if (percent == 100)
-    {
-        qDebug() << "Mcu flashed succesfully";
-        stlink.CoreRun();
-        QCoreApplication * app = qobject_cast<QCoreApplication *>(parent());
-        app->exit(0);
-    }
 }

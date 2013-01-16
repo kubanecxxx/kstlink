@@ -20,7 +20,7 @@ stm100::stm100(QStLink & father, const pages_t & Pages):
 {
     IsLocked();
 
-    QFile file("neco.bin");
+    QFile file(":/loaders/loaders/stm100/stm100.bin");
     if (!file.open(QFile::ReadOnly))
         ERR("Cannot open loader binary file");
 

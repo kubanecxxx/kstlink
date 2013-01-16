@@ -4,48 +4,79 @@
 #include <QTime>
 #include "stlinkCommands.h"
 #include "armConstants.h"
+#include "QFile"
+#include "chips.h"
+#include "stm407.h"
 
 QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
     QObject(parent),
     usb(new QLibusb(this)),
     timer(*new QTimer(this))
 {
-    /*
+    /*************************
      * init Properties struct;
-     */
+     ************************/
     GetStlinkVersion();
     EnterSWDMode();
     GetStlinkMode();
     GetCoreID();
     RefreshCoreStatus();
 
-    /*
-     * choose chip
-     */
-    //if...
-    stm100::pages_t pages;
-    for (int i = 0 ; i < 128; i++)
-        pages.append(1024);
-    stm = new stm100(*this,pages);
+    uint32_t id;
+    uint32_t temp =  ReadMemoryWord(REG_CPUID);
+    id = temp & 0xFFF;
+    // CM4 rev0 fix
+    if ((id == 0x411) && (StProperties.coreID == CORE_M4_R0))
+        id = STM32_CHIPID_F4;
+    StProperties.chipID = id;
 
-    uint32_t temp = ReadMemoryWord(REGS.FP_CTRL);
+    /***********************
+     * choose chip
+     **********************/
+    Chips chip(id);
+    if (chip.GetLoader() == 100)
+        stm = new stm100(*this,chip.GetFlashPages());
+    else if (chip.GetLoader() == 407)
+        stm = new stm407(*this,chip.GetFlashPages());
+
+
+    QFile fil(":/xml/map.xml");
+    fil.open(QFile::ReadOnly);
+    MapFile = fil.readAll();
+    QByteArray templa = "<memory type=\"flash\" start=\"0x08000000\" length=\"0x20000\"/>";
+    QByteArray repl =  "<memory type=\"flash\" start=\"0x08000000\" length=\"0x";
+    repl.append(QString("%1\">").arg(chip.GetFlashSize(),0,16));
+    MapFile.replace(templa,repl);
+
+    templa = "<memory type=\"ram\" start=\"0x20000000\" length=\"0x2000\"/>";
+    repl =  "<memory type=\"ram\" start=\"0x20000000\" length=\"0x";
+    repl.append(QString("%1\"/>").arg(chip.GetRamSize(),0,16));
+    MapFile.replace(templa,repl);
+    Name = chip.GetChipName();
+
+    /***************************
+     * init breakpoints
+     ***************************/
+    temp = ReadMemoryWord(CM3_REG_FP_CTRL);
     temp = (temp >> 4 & 0xF);
     breaks.resize(temp);
-    temp = ReadMemoryWord(REGS.FP_CTRL);
+    temp = ReadMemoryWord(CM3_REG_FP_CTRL);
     temp = (temp >> 8) & 0xF;
     lit_count = temp;
-
     BreakpointRemoveAll();
 
+    /***************************
+     * init timer for getting
+     * core state periodically
+     **************************/
     timer.start(100);
     connect(&timer,SIGNAL(timeout()),this,SLOT(timeout()));
 
+#if 0
     /*
      * benchmark
      * speeds of read and write are ~50kbit/s
      */
-    asm("nop");
-#if 0
     QByteArray tx;
     int i;
     for (i = 0 ; i < 10000; i++)
@@ -157,13 +188,18 @@ bool QStLink::IsFreeBreakpoint() const
         return true;
 }
 
-/**
+QByteArray QStLink::GetMapFile()
+{
+    return MapFile;
+}
+
+/** ******************************************************
  * @brief QStLink::ReadRam
  * api reads ram any size
  * @param address start address
  * @param length data length in bytes
  * @param buffer output data buffer
- */
+ *********************************************************/
 void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
 {
     BOTHER("Read ram");
@@ -205,12 +241,12 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
     buffer.resize(buffer.count() - kolik);
 }
 
-/**
+/** ******************************************************
  * @brief QStLink::WriteRam
  * api, writes data, any size
  * @param address start address
  * @param buffer input data
- */
+ *********************************************************/
 void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QString)
 {
     if (address < SRAM_BASE)
@@ -261,9 +297,13 @@ bool QStLink::FlashVerify(const QByteArray &data)
     for (int i = 0 ; i < rx.count(); i++)
     {
         if (rx.at(i) != data.at(i))
+        {
+            emit Verification(false);
             return false;
+        }
     }
 
+    emit Verification(true);
     return true;
 }
 
@@ -367,18 +407,6 @@ void QStLink::ReadAllRegisters(void * regs, int size)
     CommandDebug(tx,rx,size);
 
     memcpy(regs, rx.constData(),size);
-
-    /*
-    INFO("Regs:");
-    for (int i = 0; i < 16; i++)
-        INFO(QString("r%1 = 0x%2").arg(i).arg(regs->r[i],8,16,QChar('0')));
-
-    INFO(QString("xpsr = 0x%1").arg(regs->xpsr,8,16,QChar('0')));
-    INFO(QString("mainsp = 0x%1").arg(regs->main_sp,8,16,QChar('0')));
-    INFO(QString("processsp = 0x%1").arg(regs->process_sp,8,16,QChar('0')));
-    INFO(QString("rw = 0x%1").arg(regs->rw,8,16,QChar('0')));
-    INFO(QString("rw2 = 0x%1").arg(regs->rw2,8,16,QChar('0')));
-    */
 }
 
 void QStLink::SysReset()
