@@ -6,11 +6,12 @@
 #include <inttypes.h>
 #include <QtEndian>
 
-GdbServer::GdbServer(QObject *parent) :
+GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber) :
     QObject(parent),
-    stlink(new QStLink(this)),
+    stlink(new QStLink(this,mcu)),
     server(new QTcpServer(this)),
-    port(4242)
+    port(portnumber),
+    NotVerify(notverify)
 {
 
     connect(server,SIGNAL(newConnection()),this,SLOT(newConnection()));
@@ -82,7 +83,6 @@ bool GdbServer::DecodePacket(QByteArray &data)
 
     data = temp;
 
-    int pre = 0;
     for (int i = data.indexOf('}') ; i < data.count(); i = data.indexOf('}',i + 1))
     {
         if (i == -1)
@@ -94,14 +94,6 @@ bool GdbServer::DecodePacket(QByteArray &data)
         dva.append((char)(temp ^ 0x20));
         data.replace(arr,dva);
     }
-
-    /*
-    for (int i = 0 ; i < data.count(); i++)
-    {
-        if (data.at(i) == '')
-    }
-    */
-
 
     return true;
 }
@@ -349,54 +341,41 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         stlink->CoreRun();
     }
     //kill program
-    else if (data == "k")
+    else if (data == "k" || data == "D")
     {
         ans = "+";
+        stlink->BreakpointRemoveAll();
         stlink->CoreRun();
     }
     else if (data.startsWith("vFlashErase"))
     {
-        params_t pars = ParseParams(data);
-        uint32_t addr = data.mid(12,8).toInt(NULL,16);
-        uint32_t len = data.mid(21,8).toInt(NULL,16);
+        //params_t pars = ParseParams(data);
+        //uint32_t addr = data.mid(12,8).toInt(NULL,16);
+        //uint32_t len = data.mid(21,8).toInt(NULL,16);
 
-        //stlink->FlashClear(addr,len);
         FlashProgram.clear();
         ans = "OK";
         MakePacket(ans);
     }
     else if (data.startsWith("vFlashWrite"))
     {
- //       params_t pars = ParseParams(data);
- //       uint32_t addr = pars[1].toInt(NULL,16);
- //      FlashProgram.append(pars[2]);
         FlashProgram.append(data.mid(20));
-
-
-
         ans  = "OK";
         MakePacket(ans);
-
     }
     else if (data.startsWith("vFlashDone"))
     {
-        int temp = FlashProgram.count();
-        QFile file("termostat.bin");
-        bool ok  = file.open(QFile::ReadOnly);
-        QByteArray arr = file.readAll();
-        int tmep = arr.count();
-        int cantr = 0;
-     /*
-        for (int i = 0 ; i < temp ; i++)
-        {
-            if (FlashProgram.at(i) != arr.at(i))
-            {
-                asm("nop");
-                cantr++;
-            }
-        }
-*/
         stlink->FlashWrite(FLASH_BASE,FlashProgram);
+        if (!NotVerify)
+        {
+            connect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
+            qDebug() << "Verifying";
+            if (stlink->FlashVerify(FlashProgram))
+                qDebug() << "Verified OK";
+            else
+                qWarning("Verification Failed");
+            disconnect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
+        }
         ans  = "OK";
         MakePacket(ans);
         asm("nop");
@@ -472,7 +451,7 @@ QByteArray GdbServer::processBreakpointPacket(const QByteArray &data)
 
     uint8_t type = pars[0].toInt();
     uint32_t addr =(pars[1]).toInt(NULL,16);
-    uint8_t kind = pars[2].toInt();
+    //uint8_t kind = pars[2].toInt();
 
     if (type != 1)
     {
@@ -504,6 +483,7 @@ QByteArray GdbServer::processBreakpointPacket(const QByteArray &data)
 
 void GdbServer::CoreHalted(uint32_t addr)
 {
+    (void) addr;
     //last command was run
     if (input == "c")
     {
@@ -517,18 +497,15 @@ void GdbServer::CoreHalted(uint32_t addr)
 
 void GdbServer::Erasing(int perc)
 {
-    QByteArray temp = "O";
-    temp.append(QString("Erasing progress: %1\%").arg(perc));
-    MakePacket(temp);
-   // soc->write(temp);
     qDebug() << QString("Erasing progress: %1\%").arg(perc);
 }
 
 void GdbServer::Flashing(int perc)
 {
-    QByteArray temp = "O";
-    temp.append(QString("Flashing progress: %1\%").arg(perc));
-    MakePacket(temp);
     qDebug() << QString("Flashing progress: %1\%").arg(perc);
-   // soc->write(temp);
+}
+
+void GdbServer::Verify(int perc)
+{
+    qDebug() << QString("Verifying progress: %1\%").arg(perc);
 }

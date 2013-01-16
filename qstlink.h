@@ -12,7 +12,7 @@ class QStLink : public QObject
 {
     Q_OBJECT
 public:
-    explicit QStLink(QObject *parent);
+    explicit QStLink(QObject *parent, const QByteArray &mcu);
 
     //stlink version struct
     typedef struct

@@ -21,8 +21,8 @@ SOURCES += main.cpp \
     qstlink.cpp \
     armConstants.cpp \
     cm3/stm100.cpp \
-    temp.cpp \
-    gdbserver.cpp
+    gdbserver.cpp \
+    flasher.cpp
 
 HEADERS += qlibusb.h \
     qlog.h \
@@ -31,8 +31,8 @@ HEADERS += qlibusb.h \
     stlinkCommands.h \
     armConstants.h \
     cm3/stm100.h \
-    temp.h \
-    gdbserver.h
+    gdbserver.h \
+    flasher.h
 
 INCLUDEPATH += cm3
 

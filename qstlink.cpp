@@ -5,7 +5,7 @@
 #include "stlinkCommands.h"
 #include "armConstants.h"
 
-QStLink::QStLink(QObject *parent) :
+QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
     QObject(parent),
     usb(new QLibusb(this)),
     timer(*new QTimer(this))

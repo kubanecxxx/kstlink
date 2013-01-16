@@ -11,7 +11,7 @@ class GdbServer : public QObject
 {
     Q_OBJECT
 public:
-    explicit GdbServer(QObject *parent);
+    explicit GdbServer(QObject *parent, const QByteArray & mcu, bool notverify, int PortNumber);
     
 signals:
     
@@ -24,11 +24,12 @@ private slots:
 
     void Erasing(int perc);
     void Flashing(int perc);
+    void Verify(int perc);
 
 private:
     QStLink * stlink;
     QTcpServer * server;
-    int port;
+    const int port;
 
     typedef QVector<QByteArray> params_t;
 
@@ -44,6 +45,8 @@ private:
     QByteArray input;
     QTcpSocket * soc;
     QByteArray FlashProgram;
+
+    const bool NotVerify;
 };
 
 #endif // GDBSERVER_H

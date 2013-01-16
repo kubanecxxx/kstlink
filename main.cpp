@@ -1,7 +1,7 @@
 #include <QCoreApplication>
 #include <include.h>
 #include "qstlink.h"
-#include "temp.h"
+#include "flasher.h"
 #include <QFile>
 #include "QDebug"
 #include "gdbserver.h"
@@ -12,64 +12,77 @@ int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
 
-/*
-    QArm3::Debug_t deb;
-
-    deb.FLASH_BASE = STM32_FLASH_BASE;
-    deb.RAM_BASE = STM32_SRAM_BASE;
-    deb.REG_CPUID = CM3_REG_CPUID;
-    deb.REG_FP_CTRL = CM3_REG_FP_CTRL;
-    deb.REG_COMP_BASE = CM3_REG_FP_COMP0;
-    deb.COMP_REG_COUNT = 8;
-    deb.DHCSR = _DHCSR;
-    deb.DCRDR = _DCRDR;
-    deb.DCRSR = _DCRSR;
-    deb.DBGKEY = _DBGKEY;
-*/
-#if 1
-    try
+    //parse input params
+    QVector<QByteArray> input_pars;
+    for (int i = 0 ; i < argc; i++)
     {
-        new GdbServer(&a);
-    } catch (QString data)
+        input_pars.push_back(argv[i]);
+    }
+    input_pars.remove(0);
+
+    QByteArray mcu;
+    QByteArray file;
+    bool flashonly = false;
+    bool notverify = false;
+    int port = 4242;
+    for (int i = 0 ; i< input_pars.count(); i++)
     {
-        WARN(data);
+        if (input_pars[i].startsWith("-m"))
+        {
+            mcu = input_pars[i].mid(2);
+        }
+        else if (input_pars[i] == "-flashonly")
+        {
+            flashonly = true;
+        }
+        else if (input_pars[i] == "-notverify")
+        {
+            notverify = true;
+        }
+        else if (input_pars[i].startsWith("-i"))
+        {
+            file = input_pars[i].mid(2);
+        }
+        else if (input_pars[i].startsWith("-p"))
+        {
+            QByteArray temp = input_pars[i].mid(2);
+            port = temp.toInt();
+        }
     }
-#else
 
-    QStLink * link;
-    try {
-        link = new QStLink(&a);
-    }
-    catch(QString data)
+    if(mcu.isEmpty())
+        qFatal("You must specify mcu with -mprefix");
+
+    if (flashonly)
     {
-        ERR(data);
+        //run only flasher and exit
+        if (file.isEmpty())
+            qFatal("If you want to flash you must specify input binary file with -i prefix");
+
+        QFile fil(file);
+        if (!fil.exists())
+            qFatal("Input file doesn't exist");
+
+        try
+        {
+            new flasher(&a,fil,mcu);
+        } catch (QString data)
+        {
+            ERR(data);
+        }
     }
-
-    temp * jo = new temp(&a);
-
-    QObject::connect(link,SIGNAL(Erasing(int)),jo,SLOT(erasing(int)));
-    QObject::connect(link,SIGNAL(Flashing(int)),jo,SLOT(flashing(int)));
-    QObject::connect(link,SIGNAL(Reading(int)),jo,SLOT(read(int)));
-
-
-
-    QFile file("termostat.bin");
-    bool co = file.open(QFile::ReadOnly);
-
-    QByteArray array = file.readAll();
-
-    link->FlashWrite(FLASH_BASE,array);
-    bool ok = link->FlashVerify(array);
-
-    if (ok)
-        qDebug() << "Success";
     else
-        qDebug() << "Failed";
-
-    link->SysReset();
-    link->CoreRun();
-#endif
-    return a.exec();
+    {
+        //run gdbserver
+        try
+        {
+            new GdbServer(&a,mcu,notverify,port);
+        } catch (QString data)
+        {
+            WARN(data);
+        }
+        return a.exec();
+    }
 }
 
 
