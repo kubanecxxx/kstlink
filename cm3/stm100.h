@@ -7,8 +7,7 @@
 #include <QVector>
 #include <QMap>
 
-#define KEY1    0x45670123
-#define KEY2    0xCDEF89AB
+
 
 class QStLink;
 class stm100
@@ -18,7 +17,7 @@ public:
     stm100(QStLink & par, const pages_t & Pages);
 
     virtual void EraseMass() throw (QString);
-    virtual void EraseRange(uint32_t start, uint32_t stop, bool verify = false) throw (QString);
+    void EraseRange(uint32_t start, uint32_t stop, bool verify = false) throw (QString);
     virtual void WriteFlash(uint32_t start , const QByteArray & data) throw (QString);
 
     typedef struct
@@ -41,8 +40,11 @@ protected:
     virtual void FlashLock();
     virtual bool IsBusy();
     virtual bool IsLocked() ;
-    bool VerifyErased(int PageNum = -1);
     virtual void ErasePage(int pageNumber) throw (QString);
+
+    int GetPage(uint32_t addr);
+    uint32_t GetBaseAddr(int page);
+    bool VerifyErased(int PageNum = -1);
 
 private:
     const uint32_t Size;

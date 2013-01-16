@@ -3,7 +3,6 @@
 #include "stm32f10x.h"
 #include "qstlink.h"
 #include <QFile>
-#include <unistd.h>
 
 #define REG_RAMPOINTER      0
 #define REG_FLASHPOINTER    1
@@ -11,6 +10,9 @@
 #define REG_DATALENGTH      4
 #define REG_PC              15
 #define SEGMENT_SIZE        0x400
+
+#define KEY1    0x45670123
+#define KEY2    0xCDEF89AB
 
 stm100::stm100(QStLink & father, const pages_t & Pages):
     par(father),
@@ -165,8 +167,12 @@ bool stm100::IsBusy()
 
 void stm100::EraseRange(uint32_t start, uint32_t stop, bool verify) throw (QString)
 {
-    uint32_t firstpage = (start - FLASH_BASE) / this->Size;
-    uint32_t pagecount = (stop - start) / this->Size + 1;
+    uint32_t firstpage = GetPage(start);
+    uint32_t lastpage = GetPage(stop);
+    uint32_t pagecount;
+
+    pagecount = lastpage - firstpage + 1;
+
     int graph = pagecount;
     int graph2 = 0;
 
@@ -214,17 +220,20 @@ bool stm100::VerifyErased(int PageNum)
     INFO("Verifying flash memory erased");
 
     uint32_t address;
-    uint32_t size;
+    uint32_t size = 0;
 
     if (PageNum == -1)
     {
         address = FLASH_BASE;
-        size = this->Size * Count;
+        for (int i = 0 ;i < pages.count(); i++)
+        {
+            size += pages.at(i);
+        }
     }
     else
     {
-        address = PageNum * this->Size + FLASH_BASE;
-        size = this->Size;
+        address = GetBaseAddr(PageNum) + FLASH_BASE;
+        size = pages.at(PageNum);
     }
 
     par.ReadRam(address, size,arr);
@@ -282,4 +291,35 @@ void stm100::FlashLock()
     word |= FLASH_CR_LOCK;
     par.WriteRamRegister(&FLASH->CR,word);
     locked = true;
+}
+
+int stm100::GetPage(uint32_t addr)
+{
+    uint32_t low = 0;
+    uint32_t high = pages.at(0);
+    addr -= FLASH_BASE;
+
+    for (int i = 0 ; i < pages.count() - 1; i++)
+    {
+        if (addr >= low && addr < high)
+        {
+            return i;
+        }
+
+        low += pages.at(i);
+        high += pages.at(i+1);
+    }
+    ERR("GetPage:address is out of range");
+    return -1;
+}
+
+uint32_t stm100::GetBaseAddr(int page)
+{
+    uint32_t addr = 0;
+    for (int i= 0; i < page; i++)
+    {
+        addr += pages.at(i);
+    }
+
+    return addr;
 }

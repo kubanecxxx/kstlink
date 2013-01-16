@@ -135,6 +135,7 @@ private:
     stm100 * stm;
 
     friend class stm100;
+    friend class stm407;
 private:
     void EnableFPB();
     typedef struct

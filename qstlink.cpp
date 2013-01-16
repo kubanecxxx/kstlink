@@ -72,6 +72,7 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
     timer.start(100);
     connect(&timer,SIGNAL(timeout()),this,SLOT(timeout()));
 
+    FlashClear(FLASH_BASE, FLASH_BASE + 1024);
 #if 0
     /*
      * benchmark

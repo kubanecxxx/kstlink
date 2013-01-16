@@ -4,6 +4,8 @@
 #include "qlog.h"
 #include <inttypes.h>
 
+#include "unistd.h"
+
 #define IsBitOn(x,bit)  ((x >> bit) & 1)
 #define IsBitOnMask(x,bit)  ((x & bit))
 #define BitSet(x,bit)   (x | (1 << bit))
