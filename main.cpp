@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
         //run gdbserver
         try
         {
-            new GdbServer(&a,mcu,notverify,port);
+            new GdbServer(&a,mcu,notverify,port,file);
         } catch (QString data)
         {
             WARN(data);

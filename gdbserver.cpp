@@ -5,13 +5,15 @@
 #include <QTcpSocket>
 #include <inttypes.h>
 #include <QtEndian>
+#include <QDir>
 
-GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber) :
+GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file) :
     QObject(parent),
     stlink(new QStLink(this,mcu)),
     server(new QTcpServer(this)),
     port(portnumber),
-    NotVerify(notverify)
+    NotVerify(notverify),
+    VeriFile(file)
 {
 
     connect(server,SIGNAL(newConnection()),this,SLOT(newConnection()));
@@ -23,6 +25,14 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     qDebug() << QString("Chip ID: 0x%1").arg(stlink->GetChipID(),0,16);
     qDebug() << QString("Breakpoint count: %1").arg(stlink->GetBreakpointCount());
     qDebug() << QString("Chip name: " + stlink->GetMcuName());
+
+    QDir fil(VeriFile);
+    if (fil.exists())
+    {
+        VeriFile.clear();
+        qDebug() << QString("Binary file: " + fil.absolutePath());
+        VeriFile.append(fil.absolutePath());
+    }
 
     if (ok)
     {
@@ -382,8 +392,8 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             int64_t temp = addr - lastAddress;
             while(temp)
             {
+                lastAddress++;
                 temp = addr - lastAddress;
-                addr++;
                 FlashProgram.append('\0');
             }
         }
@@ -477,8 +487,17 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         }
         else if (arr.startsWith("verify"))
         {
-            arr.remove(0,7);
-            QFile file(arr);
+            QFile file;
+            if (arr == "verify")
+            {
+                file.setFileName(VeriFile);
+            }
+            else
+            {
+                arr.remove(0,7);
+                file.setFileName(arr);
+            }
+
             if (file.open(QFile::ReadOnly))
             {
                 bool ok = stlink->FlashVerify(file.readAll());
@@ -486,11 +505,17 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
                     qDebug() << "Verif ok";
                 else
                     qDebug() << "Verif failed";
+                file.close();
             }
             else
             {
                 qDebug() << "Bad file";
             }
+        }
+        else if (arr == "erase")
+        {
+            stlink->FlashMassClear();
+            qDebug() << "Erased";
         }
 
         ans = "OK";

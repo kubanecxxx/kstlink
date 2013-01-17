@@ -5,13 +5,14 @@
 #include <QLocalServer>
 #include <QTcpServer>
 #include <inttypes.h>
+#include <QFile>
 
 class QStLink;
 class GdbServer : public QObject
 {
     Q_OBJECT
 public:
-    explicit GdbServer(QObject *parent, const QByteArray & mcu, bool notverify, int PortNumber);
+    explicit GdbServer(QObject *parent, const QByteArray & mcu, bool notverify, int PortNumber,QByteArray & file);
     
 signals:
     
@@ -48,6 +49,7 @@ private:
 
     const bool NotVerify;
     uint32_t lastAddress;
+    QByteArray VeriFile;
 };
 
 #endif // GDBSERVER_H
