@@ -4,8 +4,8 @@
 #include "include.h"
 #include "qstlink.h"
 
-#define KEY1    0x45670123
-#define KEY2    0xcdef89ab
+#define _KEY1    0x45670123
+#define _KEY2    0xcdef89ab
 
 #define REG_RAMPOINTER      0
 #define REG_FLASHPOINTER    1
@@ -24,6 +24,21 @@ stm407::stm407(QStLink & par, const pages_t & Pages):
 
     loader = file.readAll();
     file.close();
+
+    FLASH_CONST.KEYR = &FLASH->KEYR;
+    FLASH_CONST.SR = &FLASH->SR;
+    FLASH_CONST.CR = &FLASH->CR;
+    FLASH_CONST.KEY1 = _KEY1;
+    FLASH_CONST.KEY2 = _KEY2;
+
+    FLASH_CONST.SR_BITS.BUSY = FLASH_SR_BSY;
+
+    FLASH_CONST.CR_BITS.LOCK = FLASH_CR_LOCK;
+    FLASH_CONST.CR_BITS.MASS_ERASE = FLASH_CR_MER;
+    FLASH_CONST.CR_BITS.PAGE_ERASE = FLASH_CR_PG;
+    FLASH_CONST.CR_BITS.START = FLASH_CR_STRT;
+    FLASH_CONST.CR_BITS.PROG = FLASH_CR_PG | FLASH_CR_PSIZE_0;
+
 
     QByteArray ar;
     for (int i = 0 ; i < 100; i++)
@@ -125,88 +140,9 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
 #endif
 }
 
-void stm407::FlashUnlock()
+void stm407::ErasePageSetup(int PageNumber)
 {
-    par.WriteRamRegister(&FLASH->KEYR,KEY1);
-    par.WriteRamRegister(&FLASH->KEYR,KEY2);
-
-    locked = false;
-}
-
-void stm407::FlashLock()
-{
-    par.WriteRamRegister(&FLASH->CR, FLASH_CR_LOCK);
-    locked = true;
-}
-
-bool stm407::IsBusy()
-{
-    uint32_t sr = par.ReadMemoryRegister(&FLASH->SR);
-
-    if (IsBitOnMask(sr,FLASH_SR_BSY))
-        busy = true;
-    else
-        busy = false;
-
-    return busy;
-}
-
-bool stm407::IsLocked()
-{
-    uint32_t cr = par.ReadMemoryRegister(&FLASH->SR);
-
-    if (IsBitOnMask(cr,FLASH_CR_LOCK))
-        locked = true;
-    else
-        locked = false;
-
-    return locked;
-}
-
-void stm407::ErasePage(int pageNumber) throw (QString)
-{
-    if (IsBusy())
-       throw(QString("stm100 ErasePage - Flash is busy"));
-
-    FlashUnlock();
-
-    QByteArray arr;
-    par.ReadRam(FLASH_BASE,10,arr);
     uint32_t cr;
-    cr = FLASH_CR_SER | (pageNumber << 3) ;
+    cr = FLASH_CR_SER | (PageNumber << 3) ;
     par.WriteRamRegister(&FLASH->CR,cr);
-    cr |= FLASH_CR_STRT;
-    par.WriteRamRegister(&FLASH->CR,cr);
-
-    while(IsBusy())
-        usleep(4000);
-
-    par.WriteRamRegister(&FLASH->CR,0);
-    FlashLock();
-
-    QByteArray ar;
-    par.ReadRam(FLASH_BASE,10,ar);
-    asm("nop");
-}
-
-
-void stm407::EraseMass() throw (QString)
-{
-    if (IsBusy())
-        throw(QString("stm100 EraseMass - Flash is busy"));
-
-    FlashUnlock();
-
-    uint32_t cr;
-    cr = FLASH_CR_MER;
-    par.WriteRamRegister(&FLASH->CR,cr);
-
-    cr = par.ReadMemoryRegister(&FLASH->CR);
-    cr |= FLASH_CR_STRT;
-    par.WriteRamRegister(&FLASH->CR,cr);
-
-    while (IsBusy())
-        usleep(4000);
-
-    cr = par.ReadMemoryRegister(&FLASH->SR);
 }

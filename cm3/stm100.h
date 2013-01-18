@@ -7,18 +7,12 @@
 #include <QVector>
 #include <QMap>
 
-
-
 class QStLink;
 class stm100
 {
 public:
     typedef QVector<uint32_t> pages_t;
     stm100(QStLink & par, const pages_t & Pages);
-
-    virtual void EraseMass() throw (QString);
-    void EraseRange(uint32_t start, uint32_t stop, bool verify = false) throw (QString);
-    virtual void WriteFlash(uint32_t start , const QByteArray & data) throw (QString);
 
     typedef struct
     {
@@ -27,7 +21,12 @@ public:
     } reg_t;
     typedef QVector<reg_t> regs_t;
     const regs_t& ReadAllRegisters(void);
-    virtual void ReadAllRegisters(uint32_t * rawData);
+
+    void ReadAllRegisters(uint32_t * rawData);
+    void EraseMass() throw (QString);
+    void EraseRange(uint32_t start, uint32_t stop, bool verify = false) throw (QString);
+    virtual void WriteFlash(uint32_t start , const QByteArray & data) throw (QString);
+
 protected:
     QStLink & par;
     const pages_t pages;
@@ -36,20 +35,46 @@ protected:
     QByteArray loader;
     regs_t registers;
 
-    virtual void FlashUnlock();
-    virtual void FlashLock();
-    virtual bool IsBusy();
-    virtual bool IsLocked() ;
-    virtual void ErasePage(int pageNumber) throw (QString);
+    void FlashUnlock();
+    void FlashLock();
+    bool IsBusy();
+    bool IsLocked() ;
+    void ErasePage(int pageNumber) throw (QString);
 
     int GetPage(uint32_t addr);
     uint32_t GetBaseAddr(int page);
     bool VerifyErased(int PageNum = -1);
 
-private:
-    const uint32_t Size;
-    const uint32_t Count;
+    typedef struct
+    {
+        uint32_t BUSY;
+    } flash_sr_bit_t;
 
+    typedef struct
+    {
+        uint32_t MASS_ERASE;
+        uint32_t PAGE_ERASE;
+        uint32_t LOCK;
+        uint32_t START;
+        uint32_t PROG;
+    } flash_cr_bit_t;
+
+    typedef struct
+    {
+        volatile uint32_t * SR;
+        volatile uint32_t * CR;
+        volatile uint32_t * KEYR;
+        flash_sr_bit_t SR_BITS;
+        flash_cr_bit_t CR_BITS;
+        uint32_t KEY1;
+        uint32_t KEY2;
+    } flash_t;
+
+    flash_t FLASH_CONST;
+
+    virtual void ErasePageSetup(int PageNumber);
+
+private:
     //arm stm32 register set
     typedef struct
     {

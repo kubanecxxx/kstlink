@@ -11,17 +11,13 @@
 #define REG_PC              15
 #define SEGMENT_SIZE        0x400
 
-#define KEY1    0x45670123
-#define KEY2    0xCDEF89AB
+#define _KEY1    0x45670123
+#define _KEY2    0xCDEF89AB
 
 stm100::stm100(QStLink & father, const pages_t & Pages):
     par(father),
-    pages(Pages),
-    Size(pages[0]),
-    Count(pages.count())
+    pages(Pages)
 {
-    IsLocked();
-
     QFile file(":/loaders/loaders/stm100/stm100.bin");
     if (!file.open(QFile::ReadOnly))
         ERR("Cannot open loader binary file");
@@ -48,6 +44,20 @@ stm100::stm100(QStLink & father, const pages_t & Pages):
     registers.push_back(temp);
     temp.Reg = QString("fpscr");
     registers.push_back(temp);
+
+    FLASH_CONST.CR = &FLASH->CR;
+    FLASH_CONST.SR = &FLASH->SR;
+    FLASH_CONST.KEYR = &FLASH->KEYR;
+    FLASH_CONST.KEY1 = _KEY1;
+    FLASH_CONST.KEY2 = _KEY2;
+
+    FLASH_CONST.SR_BITS.BUSY = FLASH_SR_BSY;
+
+    FLASH_CONST.CR_BITS.MASS_ERASE = FLASH_CR_MER;
+    FLASH_CONST.CR_BITS.PAGE_ERASE = FLASH_CR_PER;
+    FLASH_CONST.CR_BITS.LOCK = FLASH_CR_LOCK;
+    FLASH_CONST.CR_BITS.START = FLASH_CR_STRT;
+    FLASH_CONST.CR_BITS.PROG = FLASH_CR_PG;
 }
 void stm100::ReadAllRegisters(uint32_t * rawData)
 {
@@ -87,12 +97,12 @@ void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
 
     FlashUnlock();
     IsLocked();
-    par.WriteRamRegister(&FLASH->CR,FLASH_CR_PG);
+    par.WriteRamRegister(FLASH_CONST.CR,FLASH_CONST.CR_BITS.PROG);
 
     //load loader
     par.WriteRam(SRAM_BASE, loader);
     par.WriteRegister(REG_FLASHPOINTER,start);
-    uint32_t flash_sr = (uint64_t) &FLASH->SR;
+    uint32_t flash_sr = (uint64_t) FLASH_CONST.SR;
     par.WriteRegister(REG_STATUS, flash_sr);
 
     /*
@@ -138,15 +148,15 @@ void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
         par.ProgrammingProcess((++graph * 100)/graph2);
     }
 
-    par.WriteRamRegister(&FLASH->CR,0);
+    par.WriteRamRegister(FLASH_CONST.CR,0);
     FlashLock();
 }
 
 bool stm100::IsLocked()
 {
-    uint32_t word = par.ReadMemoryRegister(&FLASH->CR);
+    uint32_t word = par.ReadMemoryRegister(FLASH_CONST.CR);
 
-    if (IsBitOnMask(word,FLASH_CR_LOCK))
+    if (IsBitOnMask(word,FLASH_CONST.CR_BITS.LOCK))
         locked = true;
     else
         locked = false;
@@ -156,8 +166,8 @@ bool stm100::IsLocked()
 
 bool stm100::IsBusy()
 {
-    uint32_t word = par.ReadMemoryRegister(&FLASH->SR);
-    if (IsBitOnMask(word,FLASH_SR_BSY))
+    uint32_t word = par.ReadMemoryRegister(FLASH_CONST.SR);
+    if (IsBitOnMask(word,FLASH_CONST.SR_BITS.BUSY))
         busy = true;
     else
         busy = false;
@@ -189,6 +199,12 @@ void stm100::EraseRange(uint32_t start, uint32_t stop, bool verify) throw (QStri
     }
 }
 
+void stm100::ErasePageSetup(int pageNumber)
+{
+    uint32_t address = pageNumber * pages[0];
+    par.WriteRamRegister(&FLASH->AR, address);
+}
+
 void stm100::ErasePage(int pageNumber) throw (QString)
 {
     if (IsBusy())
@@ -197,20 +213,19 @@ void stm100::ErasePage(int pageNumber) throw (QString)
     FlashUnlock();
 
     uint32_t cr;
-    cr = FLASH_CR_PER;
-    par.WriteRamRegister(&FLASH->CR,cr);
+    cr = FLASH_CONST.CR_BITS.PAGE_ERASE;
+    par.WriteRamRegister(FLASH_CONST.CR,cr);
 
-    uint32_t address = pageNumber * this->Size;
-    par.WriteRamRegister(&FLASH->AR, address);
+    ErasePageSetup(pageNumber);
 
-    cr = par.ReadMemoryRegister(&FLASH->CR);
-    cr |= FLASH_CR_STRT;
-    par.WriteRamRegister(&FLASH->CR,cr);
+    cr = par.ReadMemoryRegister(FLASH_CONST.CR);
+    cr |= FLASH_CONST.CR_BITS.START;
+    par.WriteRamRegister(FLASH_CONST.CR,cr);
 
     while(IsBusy())
         usleep(4000);
 
-    par.WriteRamRegister(&FLASH->CR,0);
+    par.WriteRamRegister(FLASH_CONST.CR,0);
     FlashLock();
 }
 
@@ -257,39 +272,29 @@ void stm100::EraseMass() throw (QString)
     FlashUnlock();
 
     uint32_t cr;
-    cr = FLASH_CR_MER;
-    par.WriteRamRegister(&FLASH->CR,cr);
+    cr = FLASH_CONST.CR_BITS.MASS_ERASE;
+    par.WriteRamRegister(FLASH_CONST.CR,cr);
 
-    cr = par.ReadMemoryRegister(&FLASH->CR);
-    cr |= FLASH_CR_STRT;
-    par.WriteRamRegister(&FLASH->CR,cr);
+    cr = par.ReadMemoryRegister(FLASH_CONST.CR);
+    cr |= FLASH_CONST.CR_BITS.START;
+    par.WriteRamRegister(FLASH_CONST.CR,cr);
 
     while (IsBusy())
         usleep(4000);
-
-    cr = par.ReadMemoryRegister(&FLASH->SR);
 }
 
 void stm100::FlashUnlock()
 {
-    uint32_t word = par.ReadMemoryRegister(&FLASH->CR);
-    if (IsBitOnMask(word,FLASH_CR_LOCK))
-    {
-        par.WriteRamRegister(&FLASH->KEYR,KEY1);
-        par.WriteRamRegister(&FLASH->KEYR,KEY2);
-        locked = false;
-    }
+    par.WriteRamRegister(FLASH_CONST.KEYR,FLASH_CONST.KEY1);
+    par.WriteRamRegister(FLASH_CONST.KEYR,FLASH_CONST.KEY2);
+    locked = false;
 }
 
 void stm100::FlashLock()
 {
-    uint32_t temp = par.ReadMemoryRegister(&FLASH->CR);
-    if (IsBitOnMask(temp,FLASH_CR_LOCK))
-        return;
-
-    uint32_t word = par.ReadMemoryRegister(&FLASH->CR);
-    word |= FLASH_CR_LOCK;
-    par.WriteRamRegister(&FLASH->CR,word);
+    uint32_t word = par.ReadMemoryRegister(FLASH_CONST.CR);
+    word |= FLASH_CONST.CR_BITS.LOCK;
+    par.WriteRamRegister(FLASH_CONST.CR,word);
     locked = true;
 }
 
