@@ -4,5 +4,6 @@
     </qresource>
     <qresource prefix="/loaders">
         <file>loaders/stm100/stm100.bin</file>
+        <file>loaders/stm407/stm407.bin</file>
     </qresource>
 </RCC>

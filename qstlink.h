@@ -56,7 +56,7 @@ public:
 
     void ReadAllRegisters(uint32_t * regs)
     {
-        stm->ReadAllRegisters(regs);
+        ReadAllRegisters(regs,84);
     }
 
     uint32_t ReadMemoryWord(uint32_t address);
@@ -154,6 +154,26 @@ private:
      bool IsFreeBreakpoint() const;
 
      QByteArray MapFile;
+
+     //arm stm32 register set
+     typedef struct
+     {
+         uint32_t r[15];
+         uint32_t pc;
+         //r15 - program counter
+         //uint32_t s[32];
+         uint32_t xpsr;
+         uint32_t main_sp;
+         uint32_t process_sp;
+         uint8_t primask;
+         uint8_t control;
+         uint8_t basepri;
+         uint8_t faultmask;
+         uint32_t fpscr;
+         uint32_t vata[32];
+     } cm3_regs_t;
+
+     cm3_regs_t regs_human;
 };
 
 #endif // QSTLINK_H

@@ -18,7 +18,7 @@ stm407::stm407(QStLink & par, const pages_t & Pages):
     stm100(par,Pages)
 {
     IsLocked();
-    QFile file(":/loaders/loaders/stm100/stm100.bin");
+    QFile file(":/loaders/loaders/stm407/stm407.bin");
     if (!file.open(QFile::ReadOnly))
         ERR("Cannot open loader binary file");
 
@@ -55,7 +55,7 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
     par.SysReset();
     par.CoreStop();
     if (IsBusy())
-        throw(QString("stm100 WriteFlash memory is busy"));
+        throw(QString("stm407 WriteFlash memory is busy"));
 
     QByteArray cpy(data);
     while (cpy.count() % 4)
@@ -71,14 +71,15 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
     FlashUnlock();
     par.WriteRamRegister(&FLASH->CR,FLASH_CR_PG | FLASH_CR_PSIZE_0);
 
+    //load loader
+    par.WriteRam(SRAM_BASE, loader);
+    par.WriteRegister(REG_FLASHPOINTER,start);
+    uint32_t flash_sr = (uint64_t) FLASH_CONST.SR;
+    par.WriteRegister(REG_STATUS, flash_sr);
+
     /*
      * divide into 512byte segments
      */
-
-    QByteArray ar;
-    par.ReadRam(FLASH_BASE,10,ar);
-
-
     int segments = (data.count() + SEGMENT_SIZE - 1) / SEGMENT_SIZE;
 
     int graph = 0;
@@ -101,7 +102,14 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
         xpsr |= 1<<24;
         par.WriteRegister(16,xpsr);
         //run flashloader
-        par.CoreRun();
+
+        while(1)
+        {
+            par.ReadAllRegisters(NULL);
+            par.CoreSingleStep();
+        }
+
+        //        par.CoreRun();
 
         //wait for core halted
         int timeout = 0;
@@ -111,7 +119,7 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
             usleep(5000);
             if(timeout++ == 200)
             {
-                throw(QString("stm100 WriteFlash memory timeout"));
+                throw(QString("stm407 WriteFlash memory timeout"));
             }
         }
 

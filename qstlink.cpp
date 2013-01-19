@@ -407,7 +407,10 @@ void QStLink::ReadAllRegisters(void * regs, int size)
     tx.append(STLINK_DEBUG_READALLREGS);
     CommandDebug(tx,rx,size);
 
-    memcpy(regs, rx.constData(),size);
+    memcpy(&regs_human,rx.constData(),size);
+
+    if (regs)
+        memcpy(regs, &regs_human,size);
 }
 
 void QStLink::SysReset()

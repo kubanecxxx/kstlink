@@ -25,26 +25,6 @@ stm100::stm100(QStLink & father, const pages_t & Pages):
     loader = file.readAll();
     file.close();
 
-    for (int i = 0 ; i < 16 ; i++)
-    {
-        reg_t temp;
-        temp.val = 0;
-        temp.Reg = QString("r%1").arg(i);
-        registers.push_back(temp);
-    }
-    reg_t temp;
-    temp.val = 0;
-    temp.Reg = QString("xpsr");
-    registers.push_back(temp);
-    temp.Reg = QString("main_sp");
-    registers.push_back(temp);
-    temp.Reg = QString("process_sp");
-    registers.push_back(temp);
-    temp.Reg = QString("primask..");
-    registers.push_back(temp);
-    temp.Reg = QString("fpscr");
-    registers.push_back(temp);
-
     FLASH_CONST.CR = &FLASH->CR;
     FLASH_CONST.SR = &FLASH->SR;
     FLASH_CONST.KEYR = &FLASH->KEYR;
@@ -58,28 +38,6 @@ stm100::stm100(QStLink & father, const pages_t & Pages):
     FLASH_CONST.CR_BITS.LOCK = FLASH_CR_LOCK;
     FLASH_CONST.CR_BITS.START = FLASH_CR_STRT;
     FLASH_CONST.CR_BITS.PROG = FLASH_CR_PG;
-}
-void stm100::ReadAllRegisters(uint32_t * rawData)
-{
-    ReadAllRegisters();
-
-    for (int i = 0 ; i < registers.count(); i++)
-        rawData[i] = registers[i].val;
-}
-
-const stm100::regs_t & stm100::ReadAllRegisters()
-{
-    uint32_t temp[registers.count()];
-    par.ReadAllRegisters(temp,registers.count() * 4);
-
-    for (int i = 0 ; i < registers.count(); i++)
-    {
-        registers[i].val = temp[i];
-    }
-
-    memcpy(&regs_human, temp,  sizeof(cm3_regs_t));
-
-    return registers;
 }
 
 void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
