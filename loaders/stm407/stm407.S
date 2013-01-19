@@ -14,20 +14,18 @@
 _prestart:
 	nop
 	nop
-	add r3,#1
-	b	_prestart
 
 _start:
-	ldrh	r3, [r0]	@load data from ram
-	strh 	r3, [r1]	@load data to flash	
+	ldr		r3, [r0]	@load data from ram
+	str 	r3, [r1]	@load data to flash	
 	
 _wait:
 	ldr		r3, [r2]	@load flashstatus register	
 	tst.w	r3, #0x01	@test if writing finished
 	bne 	_wait
 
-	add		r0,#2		@increment pointers
-	add 	r1,#2
+	add		r0,#4		@increment pointers
+	add 	r1,#4
 						
 	cmp  	r0, r4		@compare end of buffer
 	bne		_start		@next halfword

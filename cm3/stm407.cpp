@@ -35,21 +35,12 @@ stm407::stm407(QStLink & par, const pages_t & Pages):
 
     FLASH_CONST.CR_BITS.LOCK = FLASH_CR_LOCK;
     FLASH_CONST.CR_BITS.MASS_ERASE = FLASH_CR_MER;
-    FLASH_CONST.CR_BITS.PAGE_ERASE = FLASH_CR_PG;
+    FLASH_CONST.CR_BITS.PAGE_ERASE = FLASH_CR_SER;
     FLASH_CONST.CR_BITS.START = FLASH_CR_STRT;
-    FLASH_CONST.CR_BITS.PROG = FLASH_CR_PG | FLASH_CR_PSIZE_0;
-
-
-    QByteArray ar;
-    for (int i = 0 ; i < 100; i++)
-    {
-        ar.push_back(i);
-    }
-    WriteFlash(FLASH_BASE,ar);
-    bool ok = par.FlashVerify(ar);
-    asm ("nop");
+    FLASH_CONST.CR_BITS.PROG = FLASH_CR_PG | FLASH_CR_PSIZE_1;
 }
 
+#if 0
 void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString)
 {
     par.SysReset();
@@ -62,14 +53,14 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
         cpy.append('\0');
 
     try{
-    EraseRange(start,start+data.count(),true);
+    EraseRange(start,start+cpy.count(),true);
     } catch (QString data)
     {
         ERR(data);
     }
 
     FlashUnlock();
-    par.WriteRamRegister(&FLASH->CR,FLASH_CR_PG | FLASH_CR_PSIZE_0);
+    par.WriteRamRegister(&FLASH->CR,FLASH_CR_PG | FLASH_CR_PSIZE_1);
 
     //load loader
     par.WriteRam(SRAM_BASE, loader);
@@ -102,14 +93,14 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
         xpsr |= 1<<24;
         par.WriteRegister(16,xpsr);
         //run flashloader
-
+/*
         while(1)
         {
             par.ReadAllRegisters(NULL);
             par.CoreSingleStep();
         }
-
-        //        par.CoreRun();
+*/
+                par.CoreRun();
 
         //wait for core halted
         int timeout = 0;
@@ -147,10 +138,11 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
     FlashLock();
 #endif
 }
+#endif
 
 void stm407::ErasePageSetup(int PageNumber)
 {
-    uint32_t cr;
-    cr = FLASH_CR_SER | (PageNumber << 3) ;
+    uint32_t cr = par.ReadMemoryRegister(FLASH_CONST.CR);
+    cr |= (PageNumber << 3) ;
     par.WriteRamRegister(&FLASH->CR,cr);
 }

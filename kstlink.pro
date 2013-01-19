@@ -4,9 +4,9 @@
 #
 #-------------------------------------------------
 
-QT       += core network
+QT       += core network gui
 
-QT       -= gui
+#QT       -= gui
 
 TARGET = kstlink
 CONFIG   += console
@@ -23,7 +23,8 @@ SOURCES += main.cpp \
     gdbserver.cpp \
     flasher.cpp \
     chips.cpp \
-    cm3/stm407.cpp
+    cm3/stm407.cpp \
+    progressbar.cpp
 
 HEADERS += qlibusb.h \
     qlog.h \
@@ -35,7 +36,8 @@ HEADERS += qlibusb.h \
     gdbserver.h \
     flasher.h \
     chips.h \
-    cm3/stm407.h
+    cm3/stm407.h \
+    progressbar.h
 
 INCLUDEPATH += cm3
 
@@ -44,3 +46,6 @@ unix:LIBS += -lusb-1.0
 
 RESOURCES += \
     resources.qrc
+
+FORMS += \
+    progressbar.ui

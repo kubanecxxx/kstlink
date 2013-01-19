@@ -5,13 +5,15 @@
 #include <QFile>
 #include "QDebug"
 #include "gdbserver.h"
-
+#include <QApplication>
 unsigned int log_level = 3;
 
 int main(int argc, char *argv[])
 {
     Q_INIT_RESOURCE(resources);
-    QCoreApplication a(argc, argv);
+    QApplication a(argc, argv);
+
+    a.setQuitOnLastWindowClosed(false);
 
     //parse input params
     QVector<QByteArray> input_pars;
@@ -21,13 +23,12 @@ int main(int argc, char *argv[])
     }
     input_pars.remove(0);
 
-
-
     QByteArray mcu;
     QByteArray file;
     bool flashonly = false;
     bool notverify = false;
     bool verifyonly = false;
+    bool bar = true;
     int port = 4242;
     for (int i = 0 ; i< input_pars.count(); i++)
     {
@@ -55,6 +56,10 @@ int main(int argc, char *argv[])
         else if (input_pars[i] == "-verifyonly")
         {
             verifyonly = true;
+        }
+        else if (input_pars[i] == "-nogui")
+        {
+            bar = false;
         }
     }
 
@@ -91,7 +96,7 @@ int main(int argc, char *argv[])
         //run gdbserver
         try
         {
-            new GdbServer(&a,mcu,notverify,port,file);
+            new GdbServer(&a,mcu,notverify,port,file,bar);
         } catch (QString data)
         {
             WARN(data);

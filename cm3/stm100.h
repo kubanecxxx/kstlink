@@ -25,7 +25,7 @@ protected:
     bool busy;
     QByteArray loader;
 
-    void FlashUnlock();
+    void FlashUnlock() throw (QString);
     void FlashLock();
     bool IsBusy();
     bool IsLocked() ;

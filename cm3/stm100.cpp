@@ -48,10 +48,10 @@ void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
         throw(QString("stm100 WriteFlash memory is busy"));
 
     QByteArray cpy(data);
-    while (cpy.count() % 2)
+    while (cpy.count() % 4)
         cpy.append('\0');
 
-    EraseRange(start,start+data.count(),false);
+    EraseRange(start,start+cpy.count(),false);
 
     FlashUnlock();
     IsLocked();
@@ -67,7 +67,7 @@ void stm100::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
      * divide into 512byte segments
      */
 
-    int segments = (data.count() + SEGMENT_SIZE - 1) / SEGMENT_SIZE;
+    int segments = (cpy.count() + SEGMENT_SIZE - 1) / SEGMENT_SIZE;
 
     int graph = 0;
     int graph2 = segments;
@@ -170,6 +170,7 @@ void stm100::ErasePage(int pageNumber) throw (QString)
 
     FlashUnlock();
 
+    IsLocked();
     uint32_t cr;
     cr = FLASH_CONST.CR_BITS.PAGE_ERASE;
     par.WriteRamRegister(FLASH_CONST.CR,cr);
@@ -241,11 +242,13 @@ void stm100::EraseMass() throw (QString)
         usleep(4000);
 }
 
-void stm100::FlashUnlock()
+void stm100::FlashUnlock() throw (QString)
 {
     par.WriteRamRegister(FLASH_CONST.KEYR,FLASH_CONST.KEY1);
     par.WriteRamRegister(FLASH_CONST.KEYR,FLASH_CONST.KEY2);
-    locked = false;
+
+    if (IsLocked())
+        throw (QString("Cannot unlock flash for writing"));
 }
 
 void stm100::FlashLock()

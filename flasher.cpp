@@ -16,7 +16,10 @@ flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, boo
     connect(&stlink,SIGNAL(Flashing(int)),this,SLOT(flashing(int)));
     connect(&stlink,SIGNAL(Reading(int)),this,SLOT(read(int)));
 
-    QByteArray data = file.readAll();
+    QByteArray data;
+    data.reserve(file.size());
+    data = file.readAll();
+    uint32_t neco = data.count() / 1024;
     if (!verifonly)
     {
         stlink.FlashWrite(FLASH_BASE,data);

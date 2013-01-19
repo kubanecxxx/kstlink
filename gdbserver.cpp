@@ -6,8 +6,9 @@
 #include <inttypes.h>
 #include <QtEndian>
 #include <QDir>
+#include <QMessageBox>
 
-GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file) :
+GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file, bool GuiBar) :
     QObject(parent),
     stlink(new QStLink(this,mcu)),
     server(new QTcpServer(this)),
@@ -15,6 +16,15 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     NotVerify(notverify),
     VeriFile(file)
 {
+
+    bar = NULL;
+    msg = NULL;
+    if (GuiBar)
+    {
+        bar = new ProgressBar;
+        msg = new QMessageBox;
+    }
+
 
     connect(server,SIGNAL(newConnection()),this,SLOT(newConnection()));
     connect(stlink,SIGNAL(CoreHalted(uint32_t)),this,SLOT(CoreHalted(uint32_t)));
@@ -26,12 +36,11 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     qDebug() << QString("Breakpoint count: %1").arg(stlink->GetBreakpointCount());
     qDebug() << QString("Chip name: " + stlink->GetMcuName());
 
-    QDir fil(VeriFile);
+    QFile fil(VeriFile);
     if (fil.exists())
     {
-        VeriFile.clear();
-        qDebug() << QString("Binary file: " + fil.absolutePath());
-        VeriFile.append(fil.absolutePath());
+        qDebug() << QString("Binary file: " + fil.fileName());
+        //VeriFile.append(fil.absolutePath());
     }
 
     if (ok)
@@ -154,6 +163,13 @@ void GdbServer::ReadyRead()
     } catch (QString data)
     {
         WARN(data);
+        if (msg)
+        {
+            msg->setText(data);
+            msg->show();
+            msg->setStandardButtons(QMessageBox::Ok);
+            msg->setIcon(QMessageBox::Warning);
+        }
     }
 
 }
@@ -425,8 +441,18 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             if (stlink->FlashVerify(FlashProgram))
                 qDebug() << "Verified OK";
             else
+            {
                 qWarning("Verification Failed");
+                if (msg)
+                {
+                    msg->setText("Verification failed");
+                    msg->setIcon(QMessageBox::Critical);
+                    msg->setStandardButtons(QMessageBox::Ok);
+                }
+            }
             disconnect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
+            if (bar)
+                bar->hide();
         }
         ans  = "OK";
         MakePacket(ans);
@@ -487,30 +513,57 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         }
         else if (arr.startsWith("verify"))
         {
-            QFile file;
+            QFile * file;
             if (arr == "verify")
             {
-                file.setFileName(VeriFile);
+                file = new QFile(VeriFile);
+                //file.setFileName(VeriFile);
             }
             else
             {
                 arr.remove(0,7);
-                file.setFileName(arr);
+                //file.setFileName(arr);
+                file = new QFile(arr);
             }
 
-            if (file.open(QFile::ReadOnly))
+            int temp = 0;
+
+            if (file->open(QFile::ReadOnly))
             {
-                bool ok = stlink->FlashVerify(file.readAll());
+                bool ok = stlink->FlashVerify(file->readAll());
                 if (ok)
-                    qDebug() << "Verif ok";
+                    temp =  0;
                 else
-                    qDebug() << "Verif failed";
-                file.close();
+                    temp = 1;
+                file->close();
             }
             else
             {
-                qDebug() << "Bad file";
+                temp =  2;
             }
+
+            QString text;
+            switch (temp)
+            {
+            case 0: text = "Verification OK"; break;
+            case 1: text = "Verification failed"; break;
+            case 2: text = "No file found "; break;
+            }
+
+            qDebug() << text;
+
+            if (msg)
+            {
+                msg->setText(text);
+                msg->setStandardButtons(QMessageBox::Ok);
+                if (temp == 0)
+                    msg->setIcon(QMessageBox::Information);
+                else
+                    msg->setIcon(QMessageBox::Critical);
+                msg->show();
+            }
+
+            delete file;
         }
         else if (arr == "erase")
         {
@@ -566,7 +619,7 @@ QByteArray GdbServer::processBreakpointPacket(const QByteArray &data)
 void GdbServer::CoreHalted(uint32_t addr)
 {
     (void) addr;
-    //last command was run
+    //last command was continue
     if (input == "c")
     {
         ans = "S05";
@@ -580,14 +633,32 @@ void GdbServer::CoreHalted(uint32_t addr)
 void GdbServer::Erasing(int perc)
 {
     qDebug() << QString("Erasing progress: %1\%").arg(perc);
+    if (bar)
+    {
+        bar->show();
+        bar->SetAction("Erasing:");
+        bar->SetPercent(perc);
+    }
 }
 
 void GdbServer::Flashing(int perc)
 {
     qDebug() << QString("Flashing progress: %1\%").arg(perc);
+    if (bar)
+    {
+        bar->show();
+        bar->SetAction("Flashing:");
+        bar->SetPercent(perc);
+    }
 }
 
 void GdbServer::Verify(int perc)
 {
     qDebug() << QString("Verifying progress: %1\%").arg(perc);
+    if (bar)
+    {
+        bar->show();
+        bar->SetAction("Verifing:");
+        bar->SetPercent(perc);
+    }
 }
