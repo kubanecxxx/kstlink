@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
     bool flashonly = false;
     bool notverify = false;
     bool verifyonly = false;
+    bool masserase = false;
     bool bar = true;
     int port = 4242;
     for (int i = 0 ; i< input_pars.count(); i++)
@@ -61,6 +62,10 @@ int main(int argc, char *argv[])
         {
             bar = false;
         }
+        else if (input_pars[i] == "-erase")
+        {
+            masserase = true;
+        }
     }
 
     if (flashonly && verifyonly)
@@ -73,7 +78,15 @@ int main(int argc, char *argv[])
         qFatal("You must specify mcu with -mprefix");
 
     else */
-    if (flashonly || verifyonly)
+
+    if (masserase)
+    {
+        QByteArray ar;
+        QStLink st(&a,ar);
+        st.FlashMassClear();
+        qDebug() << "Erased";
+    } else
+    if (flashonly || verifyonly )
     {
         //run only flasher and exit
         if (file.isEmpty())

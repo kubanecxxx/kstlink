@@ -433,6 +433,24 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     }
     else if (data.startsWith("vFlashDone"))
     {
+        QFile file(VeriFile);
+        if (file.open(QFile::ReadOnly))
+        {
+            QByteArray fil = file.readAll();
+            for (int i = 0; i < fil.count(); i++)
+            {
+                if(fil.at(i) != FlashProgram.at(i))
+                {
+                    if (msg)
+                    {
+                        msg->setText("Binary bad transfer via gdb");
+                        msg->setIcon(QMessageBox::Critical);
+                        msg->setStandardButtons(QMessageBox::Ok);
+                    }
+                }
+            }
+        }
+
         stlink->FlashWrite(FLASH_BASE,FlashProgram);
         if (!NotVerify)
         {
@@ -448,13 +466,15 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                     msg->setText("Verification failed");
                     msg->setIcon(QMessageBox::Critical);
                     msg->setStandardButtons(QMessageBox::Ok);
+                    ans = "E01";
                 }
             }
             disconnect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
             if (bar)
                 bar->hide();
         }
-        ans  = "OK";
+        if (ans.count() == 0)
+            ans  = "OK";
         MakePacket(ans);
         asm("nop");
     }
@@ -510,6 +530,13 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         else if (arr == "Reset")
         {
             stlink->SysReset();
+        }
+        else if (arr == "LOAD")
+        {
+            QFile moje(VeriFile);
+
+            if (moje.open(QFile::ReadOnly))
+                stlink->FlashWrite(FLASH_BASE,moje.readAll());
         }
         else if (arr.startsWith("verify"))
         {
@@ -636,7 +663,7 @@ void GdbServer::Erasing(int perc)
     if (bar)
     {
         bar->show();
-        bar->SetAction("Erasing:");
+        bar->SetAction(QString("Erasing: %1\%").arg(perc));
         bar->SetPercent(perc);
     }
 }
@@ -647,7 +674,7 @@ void GdbServer::Flashing(int perc)
     if (bar)
     {
         bar->show();
-        bar->SetAction("Flashing:");
+        bar->SetAction(QString("Flashing: %1\%").arg(perc));
         bar->SetPercent(perc);
     }
 }
@@ -658,7 +685,7 @@ void GdbServer::Verify(int perc)
     if (bar)
     {
         bar->show();
-        bar->SetAction("Verifing:");
+        bar->SetAction(QString("Verifing: %1\%").arg(perc));
         bar->SetPercent(perc);
     }
 }

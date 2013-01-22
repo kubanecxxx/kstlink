@@ -30,6 +30,7 @@ flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, boo
     if (ok)
     {
         stlink.BreakpointRemoveAll();
+        stlink.SysReset();
         stlink.CoreRun();
         qDebug() << "Verification OK";
     }
