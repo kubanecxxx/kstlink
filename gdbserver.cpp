@@ -107,14 +107,17 @@ bool GdbServer::DecodePacket(QByteArray &data)
     temp = temp.mid(start + 1, stop-start -1);
 
     data = temp;
-
+/*
     for (int i = data.indexOf('}') ; i < data.count(); i = data.indexOf('}',i + 1))
     {
         if (i == -1)
             break;
-        if ((data.at(i + 1) == ('#' ^ 0x20)) || (data.at(i + 1) == ('$' ^ 0x20))
+        if ((data.at(i + 1) == ('#' ^ 0x20))
+                || (data.at(i + 1) == ('$' ^ 0x20))
                 || (data.at(i + 1) == ('}' ^ 0x20))  )
         {
+            if (data.at(i-1 ) == 93)
+                asm ("nop");
             char temp = data.at(i+1);
             QByteArray arr = "}";
             arr.append(temp);
@@ -122,8 +125,10 @@ bool GdbServer::DecodePacket(QByteArray &data)
             dva.append((char)(temp ^ 0x20));
             data.replace(arr,dva);
         }
+        if (data.at(i- 1) == '#' && data.at(i) == '#')
+            asm("nop");
     }
-
+*/
     return true;
 }
 
@@ -305,13 +310,15 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         MakePacket(ans);
     }
     //memory write
-    else if (data.startsWith("M") || data.startsWith("X"))
+    //data.startsWith("M") ||
+    else if ( data.startsWith("X"))
     {
         params_t pars = ParseParams(data);
         uint32_t addr = (pars[0]).toInt(NULL,16);
         uint32_t len = pars[1].toInt(NULL,16);
         if (len > 0)
         {
+            processEscapeChar(pars[2]);
             QByteArray buf = pars[2];
             stlink->WriteRam(addr,buf);
         }
@@ -414,7 +421,10 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             }
         }
 
-        FlashProgram.append(data.mid(20));
+        QByteArray temp  = data.mid(20);
+        processEscapeChar(temp);
+
+        FlashProgram.append(temp);
 #if 0
         for (int i = 0 ; i < FlashProgram.count(); i++)
         {
@@ -437,8 +447,19 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         if (file.open(QFile::ReadOnly))
         {
             QByteArray fil = file.readAll();
+            QByteArray ringFile;
+            QByteArray ringGdb;
             for (int i = 0; i < fil.count(); i++)
             {
+                ringFile.append(fil.at(i));
+                ringGdb.append(FlashProgram.at(i));
+
+                if (ringFile.count() > 10)
+                    ringFile.remove(0,1);
+
+                if (ringGdb.count() > 10)
+                    ringGdb.remove(0,1);
+
                 if(fil.at(i) != FlashProgram.at(i))
                 {
                     if (msg)
@@ -446,6 +467,14 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                         msg->setText("Binary bad transfer via gdb");
                         msg->setIcon(QMessageBox::Critical);
                         msg->setStandardButtons(QMessageBox::Ok);
+                        msg->show();
+                        ans = "E01";
+
+                        ringGdb.append(FlashProgram.mid(i,5));
+                        ringFile.append(fil.mid(i,5));
+
+                        asm("nop");
+                        goto here;
                     }
                 }
             }
@@ -473,6 +502,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             if (bar)
                 bar->hide();
         }
+here:
         if (ans.count() == 0)
             ans  = "OK";
         MakePacket(ans);
@@ -687,5 +717,17 @@ void GdbServer::Verify(int perc)
         bar->show();
         bar->SetAction(QString("Verifing: %1\%").arg(perc));
         bar->SetPercent(perc);
+    }
+}
+
+void GdbServer::processEscapeChar(QByteArray & temp)
+{
+    for (int i = 0 ; i < temp.count() ; i++)
+    {
+        if (temp.at(i) == '}')
+        {
+            temp.remove(i,1);
+            temp[i] = temp[i] ^ 0x20 ;
+        }
     }
 }

@@ -43,6 +43,7 @@ private:
     void processPacket(QTcpSocket * soc,const QByteArray & rawdata);
     QByteArray processQueryPacket(const QByteArray & rawdata);
     QByteArray processBreakpointPacket(const QByteArray & rawdata);
+    void processEscapeChar(QByteArray & arr);
 
     QByteArray ans;
     QByteArray input;
