@@ -263,8 +263,9 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     } else
 
     //init section
-    if (data.contains("Hg"))
+    if (data.startsWith("Hg"))
     {
+        thread_id = data.mid(2).toInt(NULL,16);
         ans.append("OK");
         MakePacket(ans);
     }
@@ -292,6 +293,19 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         QByteArray arr;
         arr.resize(84);
         stlink->ReadAllRegisters((uint32_t *)arr.data());
+
+        //mode_t mode = GetMode();
+        switch(thread_id)
+        {
+        //main thread
+        case 1:
+            arr.replace(13*4,4,arr.constData() + 18* 4,4);
+            break;
+        //handler thread
+        case 2:
+            arr.replace(13*4,4,arr.constData() + 17* 4,4);
+            break;
+        }
         arr.resize(64);
 
         ans = arr.toHex();
@@ -335,9 +349,13 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
 
         uint32_t idx = pars[0].toInt(NULL,16);
 
-        if (idx == 18)
+        if (idx == 16)
+            idx = 17;
+        else if (idx == 17)
+            idx = 18;
+        else if (idx == 24)
             idx = 20;
-        else if (idx == 19)
+        else if (idx == 25)
             idx = 16;
         uint32_t reg = stlink->ReadRegister(idx);
 
@@ -373,6 +391,23 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             stlink->CoreSingleStep();
         }
         ans = "S05";
+        MakePacket(ans);
+    }
+    //thread info
+    else if(data.startsWith("T"))
+    {
+        params_t par = ParseParams(data);
+        uint32_t id = par[0].toInt(NULL,16);
+
+        if (id == 1)
+            ans = "OK";
+        if (id == 2)
+        {
+            if (GetMode() == Handler)
+                ans = "OK";
+            else
+                ans = "E00";
+        }
         MakePacket(ans);
     }
     //continue
@@ -545,7 +580,23 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     }
     else if (data == "qfThreadInfo")
     {
+        if (GetMode() == Handler)
+            ans = "m1,2";
+        else
+            ans = "m1";
+
+        MakePacket(ans);
+    }
+    else if (data == "qsThreadInfo")
+    {
         ans = "l";
+        MakePacket(ans);
+    }
+    else if (data.startsWith("qThreadExtraInfo"))
+    {
+        params_t pars = ParseParams(data);
+        ans = "Stopped";
+        ans = ans.toHex();
         MakePacket(ans);
     }
     else if (data.startsWith("qRcmd"))
@@ -730,4 +781,18 @@ void GdbServer::processEscapeChar(QByteArray & temp)
             temp[i] = temp[i] ^ 0x20 ;
         }
     }
+}
+
+GdbServer::mode_t GdbServer::GetMode()
+{
+    uint32_t sp = stlink->ReadRegister(13);
+    uint32_t main_sp = stlink->ReadRegister(17);
+    uint32_t process_sp = stlink->ReadRegister(18);
+
+    if (sp == main_sp)
+        return Handler;
+    else if (sp == process_sp)
+        return Thread;
+
+    return Unknown;
 }
