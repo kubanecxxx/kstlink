@@ -59,9 +59,9 @@ private:
 
     int thread_id;
 
-    typedef enum {Thread, Handler, Unknown} mode_t;
 
-    mode_t GetMode();
+
+
 };
 
 #endif // GDBSERVER_H

@@ -8,6 +8,9 @@
 #include <QDir>
 #include <QMessageBox>
 
+#define THD_MAIN 1
+#define THD_HAN 5
+
 GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file, bool GuiBar) :
     QObject(parent),
     stlink(new QStLink(this,mcu)),
@@ -105,30 +108,8 @@ bool GdbServer::DecodePacket(QByteArray &data)
         return false;
 
     temp = temp.mid(start + 1, stop-start -1);
-
     data = temp;
-/*
-    for (int i = data.indexOf('}') ; i < data.count(); i = data.indexOf('}',i + 1))
-    {
-        if (i == -1)
-            break;
-        if ((data.at(i + 1) == ('#' ^ 0x20))
-                || (data.at(i + 1) == ('$' ^ 0x20))
-                || (data.at(i + 1) == ('}' ^ 0x20))  )
-        {
-            if (data.at(i-1 ) == 93)
-                asm ("nop");
-            char temp = data.at(i+1);
-            QByteArray arr = "}";
-            arr.append(temp);
-            QByteArray dva;
-            dva.append((char)(temp ^ 0x20));
-            data.replace(arr,dva);
-        }
-        if (data.at(i- 1) == '#' && data.at(i) == '#')
-            asm("nop");
-    }
-*/
+
     return true;
 }
 
@@ -298,11 +279,16 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         switch(thread_id)
         {
         //main thread
-        case 1:
-            arr.replace(13*4,4,arr.constData() + 18* 4,4);
+        case THD_MAIN:
+            if (stlink->GetMode() == QStLink::Handler)
+            {
+                stlink->ReadAllRegistersStacked((uint32_t *)arr.data());
+                asm("nop");
+            }
+            //arr.replace(13*4,4,arr.constData() + 18* 4,4);
             break;
         //handler thread
-        case 2:
+        case THD_HAN:
             arr.replace(13*4,4,arr.constData() + 17* 4,4);
             break;
         }
@@ -349,12 +335,15 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
 
         uint32_t idx = pars[0].toInt(NULL,16);
 
-        if (idx == 16)
-            idx = 17;
-        else if (idx == 17)
-            idx = 18;
-        else if (idx == 24)
-            idx = 20;
+        QStLink::mode_t mode = stlink->GetMode();
+
+        if (idx == 24)
+        {
+            if (mode == QStLink::Handler)
+                idx = 18;
+            else
+                idx = 17;
+        }
         else if (idx == 25)
             idx = 16;
         uint32_t reg = stlink->ReadRegister(idx);
@@ -399,15 +388,17 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         params_t par = ParseParams(data);
         uint32_t id = par[0].toInt(NULL,16);
 
-        if (id == 1)
+        if (id == THD_MAIN)
             ans = "OK";
-        if (id == 2)
+        if (id == THD_HAN)
         {
-            if (GetMode() == Handler)
+            if (stlink->GetMode() == QStLink::Handler)
                 ans = "OK";
             else
                 ans = "E00";
         }
+
+        //ans = "OK";
         MakePacket(ans);
     }
     //continue
@@ -580,10 +571,12 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     }
     else if (data == "qfThreadInfo")
     {
-        if (GetMode() == Handler)
-            ans = "m1,2";
+        if (stlink->GetMode() == QStLink::Handler)
+            ans = "m1,5";
         else
             ans = "m1";
+
+        //ans = "l";
 
         MakePacket(ans);
     }
@@ -595,7 +588,7 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     else if (data.startsWith("qThreadExtraInfo"))
     {
         params_t pars = ParseParams(data);
-        ans = "Stopped";
+        ans = "s";
         ans = ans.toHex();
         MakePacket(ans);
     }
@@ -781,18 +774,4 @@ void GdbServer::processEscapeChar(QByteArray & temp)
             temp[i] = temp[i] ^ 0x20 ;
         }
     }
-}
-
-GdbServer::mode_t GdbServer::GetMode()
-{
-    uint32_t sp = stlink->ReadRegister(13);
-    uint32_t main_sp = stlink->ReadRegister(17);
-    uint32_t process_sp = stlink->ReadRegister(18);
-
-    if (sp == main_sp)
-        return Handler;
-    else if (sp == process_sp)
-        return Thread;
-
-    return Unknown;
 }

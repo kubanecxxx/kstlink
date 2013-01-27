@@ -31,6 +31,8 @@ public:
         int chipID;
     } stlink_properties_t;
 
+    typedef enum {Thread, Handler, Unknown} mode_t;
+
     //info
     int GetStlinkMode(QString * text = NULL);
     version_t GetStlinkVersion();
@@ -49,11 +51,13 @@ public:
     void SysReset();
     void WriteRegister(uint8_t reg_idx, uint32_t data);
     uint32_t ReadRegister(uint8_t reg_idx);
+    mode_t GetMode();
 
     //memory commands
     void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer);
     void WriteRam(uint32_t address, const QByteArray & buffer) throw (QString);
 
+    void ReadAllRegistersStacked(uint32_t * regs);
     void ReadAllRegisters(uint32_t * regs)
     {
         ReadAllRegisters(regs,84);
@@ -174,6 +178,8 @@ private:
      } cm3_regs_t;
 
      cm3_regs_t regs_human;
+     cm3_regs_t regs_human_stacked;
+     mode_t ThreadMode;
 };
 
 #endif // QSTLINK_H

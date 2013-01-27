@@ -22,6 +22,7 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
     GetCoreID();
     RefreshCoreStatus();
 
+    usleep(1000);
     uint32_t id;
     uint32_t temp =  ReadMemoryWord(REG_CPUID);
     id = temp & 0xFFF;
@@ -92,6 +93,45 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
 
     rx.clear();
 #endif
+}
+
+void QStLink::ReadAllRegistersStacked(uint32_t * regs)
+{
+    uint32_t regist[21];
+    ReadAllRegisters(regist);
+    uint32_t sp = regs_human.process_sp;
+    regs_human_stacked = regs_human;
+    //zjištěni handleru taky hodit sem
+    //ideálně všechny čisla registrů házet jenom semka
+    QByteArray temp;
+    ReadRam(sp,32,temp);
+    memset(regist,0,21 * 4);
+    memcpy(regist,temp.constData(),32);
+
+    regs_human_stacked.r[13] = sp;
+    memcpy(&regs_human_stacked,regist,4*4);
+    regs_human_stacked.r[12] = regist[4];
+    regs_human_stacked.r[14] = regist[5];
+    regs_human_stacked.pc = regist[6];
+    regs_human_stacked.xpsr = regist[7];
+
+    memcpy(regs,&regs_human_stacked,84);
+}
+
+QStLink::mode_t QStLink::GetMode()
+{
+    uint32_t sp = ReadRegister(13);
+    uint32_t main_sp = ReadRegister(17);
+    uint32_t process_sp = ReadRegister(18);
+
+    ThreadMode = Unknown;
+
+    if (sp == main_sp)
+        ThreadMode = Handler;
+    else if (sp == process_sp)
+        ThreadMode = Thread;
+
+    return ThreadMode;
 }
 
 //timeout for read core status
@@ -406,6 +446,8 @@ void QStLink::ReadAllRegisters(void * regs, int size)
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_READALLREGS);
     CommandDebug(tx,rx,size);
+
+    GetMode();
 
     memcpy(&regs_human,rx.constData(),size);
 
