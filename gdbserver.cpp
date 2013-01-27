@@ -283,13 +283,20 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             if (stlink->GetMode() == QStLink::Handler)
             {
                 stlink->ReadAllRegistersStacked((uint32_t *)arr.data());
-                asm("nop");
             }
             //arr.replace(13*4,4,arr.constData() + 18* 4,4);
             break;
         //handler thread
         case THD_HAN:
-            arr.replace(13*4,4,arr.constData() + 17* 4,4);
+            if (stlink->GetMode() == QStLink::Handler)
+            {
+                arr.replace(13*4,4,arr.constData() + 17* 4,4);
+            }
+            else
+            {
+                arr.fill(0);
+            }
+
             break;
         }
         arr.resize(64);
@@ -398,7 +405,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                 ans = "E00";
         }
 
-        //ans = "OK";
+        ans = "OK";
         MakePacket(ans);
     }
     //continue
@@ -576,7 +583,7 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         else
             ans = "m1";
 
-        //ans = "l";
+        ans = "m1,5";
 
         MakePacket(ans);
     }
@@ -588,7 +595,25 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     else if (data.startsWith("qThreadExtraInfo"))
     {
         params_t pars = ParseParams(data);
-        ans = "s";
+        int id = pars[1].toInt(NULL,16);
+        QStLink::mode_t mode = stlink->GetMode();
+
+        switch(id)
+        {
+            case THD_MAIN:
+                if (mode == QStLink::Thread)
+                    ans = "Main Active";
+                else
+                    ans = "Main Not Active";
+                break;
+            case THD_HAN:
+                if (mode == QStLink::Handler)
+                    ans = "Handler Active";
+                else
+                    ans = "Handler Not Active";
+                break;
+        }
+
         ans = ans.toHex();
         MakePacket(ans);
     }
