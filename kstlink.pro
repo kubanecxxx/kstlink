@@ -24,7 +24,8 @@ SOURCES += main.cpp \
     flasher.cpp \
     chips.cpp \
     cm3/stm407.cpp \
-    progressbar.cpp
+    progressbar.cpp \
+    kelnet.cpp
 
 HEADERS += qlibusb.h \
     qlog.h \
@@ -37,7 +38,8 @@ HEADERS += qlibusb.h \
     flasher.h \
     chips.h \
     cm3/stm407.h \
-    progressbar.h
+    progressbar.h \
+    kelnet.h
 
 INCLUDEPATH += cm3
 

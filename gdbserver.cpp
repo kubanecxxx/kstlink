@@ -7,6 +7,7 @@
 #include <QtEndian>
 #include <QDir>
 #include <QMessageBox>
+#include "kelnet.h"
 
 #define THD_MAIN 1
 #define THD_HAN 5
@@ -19,7 +20,7 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     NotVerify(notverify),
     VeriFile(file)
 {
-
+    new Kelnet(*stlink,this);
     bar = NULL;
     msg = NULL;
     if (GuiBar)
