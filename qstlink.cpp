@@ -378,11 +378,22 @@ void QStLink::ReadRam32(uint32_t address, uint16_t length, QByteArray &buffer)
 {
     QByteArray tx;
 
+    //address is automatically aligned to multiply of 4
+    //by stlink
+    int temp = 0;
+    while(address % 4)
+    {
+        address--;
+        length++;
+        temp++;
+    }
+
     tx.append(STLINK_DEBUG_READMEM_32BIT);
     FillArrayEndian32(tx,address);
     FillArrayEndian16(tx,length);
 
     CommandDebug(tx,buffer,length);
+    buffer.remove(0,temp);
 }
 
 void QStLink::CoreStop()
