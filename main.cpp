@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
     bool notverify = false;
     bool verifyonly = false;
     bool masserase = false;
+    bool stop = false;
     bool bar = true;
     int port = 4242;
     for (int i = 0 ; i< input_pars.count(); i++)
@@ -37,11 +38,11 @@ int main(int argc, char *argv[])
         {
             mcu = input_pars[i].mid(2);
         }
-        else if (input_pars[i] == "-flashonly")
+        else if (input_pars[i] == "--flashonly")
         {
             flashonly = true;
         }
-        else if (input_pars[i] == "-notverify")
+        else if (input_pars[i] == "--notverify")
         {
             notverify = true;
         }
@@ -54,17 +55,25 @@ int main(int argc, char *argv[])
             QByteArray temp = input_pars[i].mid(2);
             port = temp.toInt();
         }
-        else if (input_pars[i] == "-verifyonly")
+        else if (input_pars[i] == "--verifyonly")
         {
             verifyonly = true;
         }
-        else if (input_pars[i] == "-nogui")
+        else if (input_pars[i] == "--nogui")
         {
             bar = false;
         }
-        else if (input_pars[i] == "-erase")
+        else if (input_pars[i] == "--erase")
         {
             masserase = true;
+        }
+        else if (input_pars[i] == "--stopcore")
+        {
+            stop = true;
+        }
+        else
+        {
+            qDebug() << "unrecognized parameter:" << input_pars[i];
         }
     }
 
@@ -109,7 +118,7 @@ int main(int argc, char *argv[])
         //run gdbserver
         try
         {
-            new GdbServer(&a,mcu,notverify,port,file,bar);
+            new GdbServer(&a,mcu,notverify,port,file,bar,stop);
         } catch (QString data)
         {
             WARN(data);

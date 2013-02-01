@@ -8,7 +8,7 @@
 #include "chips.h"
 #include "stm407.h"
 
-QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
+QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
     QObject(parent),
     usb(new QLibusb(this)),
     timer(*new QTimer(this))
@@ -16,6 +16,9 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
     /*************************
      * init Properties struct;
      ************************/
+    if (stop)
+        CoreStop();
+
     GetStlinkVersion();
     EnterSWDMode();
     GetStlinkMode();
@@ -73,6 +76,10 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu) :
     timer.start(100);
     connect(&timer,SIGNAL(timeout()),this,SLOT(timeout()));
 
+    /*
+    if (stop)
+        CoreRun();
+*/
     //FlashClear(FLASH_BASE, FLASH_BASE + 1024);
 #if 0
     /*

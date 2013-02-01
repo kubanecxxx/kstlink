@@ -12,9 +12,9 @@
 #define THD_MAIN 1
 #define THD_HAN 5
 
-GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file, bool GuiBar) :
+GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file, bool GuiBar,bool stop) :
     QObject(parent),
-    stlink(new QStLink(this,mcu)),
+    stlink(new QStLink(this,mcu,stop)),
     server(new QTcpServer(this)),
     port(portnumber),
     NotVerify(notverify),
