@@ -4,11 +4,17 @@
 #include <qstlink.h>
 #include <QCoreApplication>
 
-flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, bool verifonly) :
+flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, bool verifonly, bool run) :
     QObject(parent),
     file(BinaryFile),
     stlink(*new QStLink(this,mcu))
 {
+    if (run)
+    {
+        stlink.CoreRun();
+        return;
+    }
+
     if (!file.open(QFile::ReadOnly))
         qFatal("Cannot open input file");
 

@@ -20,6 +20,7 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     NotVerify(notverify),
     VeriFile(file)
 {
+    //VeriFile = "/home/kubanec/workspace/ARMCM4-STM32F407-DISCOVERY/build/test.bin";
     new Kelnet(*stlink,this);
     bar = NULL;
     msg = NULL;
@@ -59,6 +60,7 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
 
     connect(stlink,SIGNAL(Erasing(int)),this,SLOT(Erasing(int)));
     connect(stlink,SIGNAL(Flashing(int)),this,SLOT(Flashing(int)));
+
 }
 
 void GdbServer::MakePacket(QByteArray &checksum,QByteArray * binary)
@@ -273,7 +275,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     else if (data == "g")
     {
         QByteArray arr;
-        arr.resize(84);
+        arr.resize(100);
         stlink->ReadAllRegisters((uint32_t *)arr.data());
 
         //mode_t mode = GetMode();
@@ -310,6 +312,10 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     {
         params_t pars = ParseParams(data);
         uint32_t addr = (pars[0]).toInt(NULL,16);
+        if (addr == 0)
+        {
+            asm("nop");
+        }
         uint32_t len = pars[1].toInt(NULL,16);
         ans.clear();
 
@@ -422,6 +428,11 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         ans = "+";
         soc = client;
         stlink->CoreRun();
+    }
+    //baud speed
+    else if (data.startsWith("b"))
+    {
+        ans = "+";
     }
     //kill program
     else if (data == "k" || data == "D")

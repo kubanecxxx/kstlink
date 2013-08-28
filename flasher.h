@@ -9,7 +9,7 @@ class flasher : public QObject
 {
     Q_OBJECT
 public:
-    explicit flasher(QObject *parent, QFile & BinaryFile, const QByteArray & mcu, bool verifonly);
+    explicit flasher(QObject *parent, QFile & BinaryFile, const QByteArray & mcu, bool verifonly, bool run);
     
 signals:
     

@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
     bool masserase = false;
     bool stop = false;
     bool bar = true;
+    bool run = false;
     int port = 4242;
     for (int i = 0 ; i< input_pars.count(); i++)
     {
@@ -71,6 +72,10 @@ int main(int argc, char *argv[])
         {
             stop = true;
         }
+        else if (input_pars[i] == "--run")
+        {
+            run = true;
+        }
         else
         {
             qDebug() << "unrecognized parameter:" << input_pars[i];
@@ -95,7 +100,7 @@ int main(int argc, char *argv[])
         st.FlashMassClear();
         qDebug() << "Erased";
     } else
-    if (flashonly || verifyonly )
+    if (flashonly || verifyonly || run )
     {
         //run only flasher and exit
         if (file.isEmpty())
@@ -107,7 +112,7 @@ int main(int argc, char *argv[])
 
         try
         {
-            new flasher(&a,fil,mcu, verifyonly);
+            new flasher(&a,fil,mcu, verifyonly,run);
         } catch (QString data)
         {
             ERR(data);

@@ -97,6 +97,7 @@ signals:
     void CoreHalted(uint32_t address);
     void CoreRunning();
     void Verification(bool ok);
+    void CommunicationFailed();
 
 private slots:
     void timeout (void);

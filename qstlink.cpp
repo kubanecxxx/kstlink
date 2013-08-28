@@ -16,11 +16,12 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
     /*************************
      * init Properties struct;
      ************************/
-    if (stop)
-        CoreStop();
 
     GetStlinkVersion();
     EnterSWDMode();
+    if (stop)
+        CoreStop();
+
     GetStlinkMode();
     GetCoreID();
     RefreshCoreStatus();
@@ -144,6 +145,15 @@ QStLink::mode_t QStLink::GetMode()
 //timeout for read core status
 void QStLink::timeout()
 {
+    static int i = 0;
+    uint32_t t =  ReadRegister(15);
+   qDebug() << i++ << " " << QString("0x%1").arg(t,0,16);
+    if (t == 0xf)
+    {
+        emit CommunicationFailed();
+        ERR("Communication Failed");
+    }
+
     bool temp = IsCoreHalted();
 
     if (temp)
