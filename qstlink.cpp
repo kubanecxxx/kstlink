@@ -147,7 +147,7 @@ void QStLink::timeout()
 {
     static int i = 0;
     uint32_t t =  ReadRegister(15);
-   qDebug() << i++ << " " << QString("0x%1").arg(t,0,16);
+   //qDebug() << i++ << " " << QString("0x%1").arg(t,0,16);
     if (t == 0xf)
     {
         emit CommunicationFailed();
