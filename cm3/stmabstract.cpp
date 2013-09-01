@@ -53,7 +53,7 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
         QByteArray seg = cpy.left(SEGMENT_SIZE);
         cpy.remove(0,SEGMENT_SIZE);
 
-        EXECUTION_TIME(writeSegment(seg,i);,segment);
+        writeSegment(seg,i);
 
         par.ProgrammingProcess((++graph * 100)/graph2);
     }
@@ -67,8 +67,6 @@ void stmAbstract::writeSegment(const QByteArray & seg, int number)
     int ram = (number % 2) * (SEGMENT_SIZE );
     int flash =  ((number + 1 ) % 2) * (SEGMENT_SIZE )  ;
 
-
-#if 1
     if (ready)
     {
         //setuploader
@@ -107,7 +105,7 @@ void stmAbstract::writeSegment(const QByteArray & seg, int number)
             }
         }
     }
-#endif
+
     ready = true;
 }
 

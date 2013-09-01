@@ -80,7 +80,7 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
 #if 0
     /*
      * benchmark
-     * speeds of read and write are ~50kbit/s
+     * speeds of read and write are ~50kbytes/s
      */
     QByteArray tx;
     int i;
