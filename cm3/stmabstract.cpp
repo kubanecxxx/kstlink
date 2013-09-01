@@ -16,7 +16,6 @@ stmAbstract::stmAbstract(QStLink & father,const pages_t & _pages):
 
 void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QString)
 {
-#if 1
     par.SysReset();
     par.CoreStop();
     if (IsBusy())
@@ -49,6 +48,7 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
 
     for (int i = 0 ; i < segments; i++ )
     {
+
         QByteArray seg = cpy.left(SEGMENT_SIZE);
         cpy.remove(0,SEGMENT_SIZE);
         //writeram segment
@@ -59,6 +59,7 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
         par.WriteRegister(REG_DATALENGTH,ramAddr + seg.count());
         par.WriteRegister(REG_PC,SRAM_BASE);
 
+        //-----------------------play---------------
         //force thumb mode
         uint32_t xpsr = par.ReadRegister(16);
         xpsr |= 1<<24;
@@ -66,6 +67,7 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
         //run flashloader
         par.CoreRun();
 
+        //-----------------------------
         //wait for core halted
         int timeout = 0;
         usleep(1000);
@@ -83,7 +85,6 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
 
     par.WriteRamRegister(FLASH_CONST.CR,0);
     FlashLock();
-#endif
 }
 
 bool stmAbstract::IsLocked()

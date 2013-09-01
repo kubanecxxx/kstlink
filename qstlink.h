@@ -135,8 +135,6 @@ private:
 
     stmAbstract * stm;
 
-    friend class stm100;
-    friend class stm407;
     friend class stmAbstract;
 private:
     void EnableFPB();

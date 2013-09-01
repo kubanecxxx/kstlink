@@ -65,6 +65,8 @@ protected:
     } flash_t;
 
     flash_t FLASH_CONST;
+
+private:
 };
 
 #endif // STMABSTRACT_H
