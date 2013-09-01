@@ -7,7 +7,7 @@
 flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, bool verifonly, bool run) :
     QObject(parent),
     file(BinaryFile),
-    stlink(*new QStLink(this,mcu))
+    stlink(*new QStLink(parent,mcu))
 {
     if (run)
     {

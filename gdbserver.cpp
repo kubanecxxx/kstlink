@@ -6,33 +6,25 @@
 #include <inttypes.h>
 #include <QtEndian>
 #include <QDir>
-#include <QMessageBox>
 #include "kelnet.h"
 
 #define THD_MAIN 1
 #define THD_HAN 5
 
-GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file, bool GuiBar,bool stop) :
+GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file, bool stop) :
     QObject(parent),
-    stlink(new QStLink(this,mcu,stop)),
+    stlink(new QStLink(parent,mcu,stop)),
     server(new QTcpServer(this)),
     port(portnumber),
     NotVerify(notverify),
     VeriFile(file)
 {
     //VeriFile = "/home/kubanec/workspace/ARMCM4-STM32F407-DISCOVERY/build/test.bin";
-    new Kelnet(*stlink,this);
-    bar = NULL;
-    msg = NULL;
-    if (GuiBar)
-    {
-        bar = new ProgressBar;
-        msg = new QMessageBox;
-    }
+    new Kelnet(*stlink,parent);
 
 
     connect(server,SIGNAL(newConnection()),this,SLOT(newConnection()));
-    connect(stlink,SIGNAL(CoreHalted(uint32_t)),this,SLOT(CoreHalted(uint32_t)));
+    connect(stlink,SIGNAL(CoreHalted(quint32)),this,SLOT(CoreHalted(quint32)));
     bool ok = server->listen(QHostAddress::Any,port);
 
     qDebug() << QString("Core status: " + stlink->GetCoreStatus());
@@ -152,6 +144,7 @@ void GdbServer::ReadyRead()
     } catch (QString data)
     {
         WARN(data);
+        /*
         if (msg)
         {
             msg->setText(data);
@@ -159,6 +152,7 @@ void GdbServer::ReadyRead()
             msg->setStandardButtons(QMessageBox::Ok);
             msg->setIcon(QMessageBox::Warning);
         }
+        */
     }
 
 }
@@ -507,6 +501,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
 
                 if(fil.at(i) != FlashProgram.at(i))
                 {
+                    /*
                     if (msg)
                     {
                         msg->setText("Binary bad transfer via gdb");
@@ -521,6 +516,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                         asm("nop");
                         goto here;
                     }
+                    */
                 }
             }
         }
@@ -535,6 +531,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             else
             {
                 qWarning("Verification Failed");
+                /*
                 if (msg)
                 {
                     msg->setText("Verification failed");
@@ -542,10 +539,13 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                     msg->setStandardButtons(QMessageBox::Ok);
                     ans = "E01";
                 }
+                */
             }
             disconnect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
+            /*
             if (bar)
                 bar->hide();
+                */
         }
 here:
         if (ans.count() == 0)
@@ -689,7 +689,7 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
             }
 
             qDebug() << text;
-
+/*
             if (msg)
             {
                 msg->setText(text);
@@ -700,7 +700,7 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
                     msg->setIcon(QMessageBox::Critical);
                 msg->show();
             }
-
+*/
             delete file;
         }
         else if (arr == "erase")
@@ -766,39 +766,23 @@ void GdbServer::CoreHalted(uint32_t addr)
         MakePacket(ans);
         soc->write(ans);
     }
+
+
 }
 
 void GdbServer::Erasing(int perc)
 {
     qDebug() << QString("Erasing progress: %1\%").arg(perc);
-    if (bar)
-    {
-        bar->show();
-        bar->SetAction(QString("Erasing: %1\%").arg(perc));
-        bar->SetPercent(perc);
-    }
 }
 
 void GdbServer::Flashing(int perc)
 {
     qDebug() << QString("Flashing progress: %1\%").arg(perc);
-    if (bar)
-    {
-        bar->show();
-        bar->SetAction(QString("Flashing: %1\%").arg(perc));
-        bar->SetPercent(perc);
-    }
 }
 
 void GdbServer::Verify(int perc)
 {
     qDebug() << QString("Verifying progress: %1\%").arg(perc);
-    if (bar)
-    {
-        bar->show();
-        bar->SetAction(QString("Verifing: %1\%").arg(perc));
-        bar->SetPercent(perc);
-    }
 }
 
 void GdbServer::processEscapeChar(QByteArray & temp)

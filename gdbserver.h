@@ -6,15 +6,13 @@
 #include <QTcpServer>
 #include <inttypes.h>
 #include <QFile>
-#include "progressbar.h"
-#include <QMessageBox>
 
 class QStLink;
 class GdbServer : public QObject
 {
     Q_OBJECT
 public:
-    explicit GdbServer(QObject *parent, const QByteArray & mcu, bool notverify, int PortNumber,QByteArray & file, bool GuiBar,bool stop);
+    explicit GdbServer(QObject *parent, const QByteArray & mcu, bool notverify, int PortNumber,QByteArray & file,bool stop);
     
 signals:
     
@@ -23,7 +21,7 @@ public slots:
 private slots:
     void newConnection();
     void ReadyRead(void);
-    void CoreHalted(uint32_t addr);
+    void CoreHalted(quint32 addr);
 
     void Erasing(int perc);
     void Flashing(int perc);
@@ -53,9 +51,6 @@ private:
     const bool NotVerify;
     uint32_t lastAddress;
     QByteArray VeriFile;
-
-    ProgressBar * bar;
-    QMessageBox * msg;
 
     int thread_id;
 

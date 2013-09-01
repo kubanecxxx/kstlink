@@ -19,6 +19,7 @@ void QLog::Log(const QString & comm,const QString &str, unsigned int level)
             QString jo;
             jo += comm+ time.toString(" dd.MM.yy hh:mm:ss ") + str;
 
+
             qFatal(jo.toStdString().c_str());
         }
     }

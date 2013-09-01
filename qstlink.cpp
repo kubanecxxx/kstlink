@@ -9,7 +9,7 @@
 #include "stm407.h"
 
 QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
-    QObject(parent),
+    QStlinkAdaptor(parent),
     usb(new QLibusb(this)),
     timer(*new QTimer(this))
 {
@@ -101,6 +101,8 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
 
     rx.clear();
 #endif
+
+    mode_list << "Thread" << "Handler"<< "Unknown";
 }
 
 void QStLink::ReadAllRegistersStacked(uint32_t * regs)
@@ -160,6 +162,7 @@ void QStLink::timeout()
     {
         uint32_t addr  = ReadRegister(15);
         emit CoreHalted(addr);
+        emit CoreHalted();
     }
     else
     {
@@ -292,7 +295,9 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
         buffer.append(array);
 
         address += SEGMENT_SIZE;
-        emit Reading((++graph * 100) / graph2);
+
+        if (buffer.count() > 1024)
+            emit Reading((++graph * 100) / graph2);
     }
 
     //delete added bytes
@@ -520,7 +525,7 @@ void QStLink::RefreshCoreStatus()
     StProperties.CoreState = CoreState;
 }
 
-int QStLink::GetCoreID()
+quint32 QStLink::GetCoreID()
 {
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_READCOREID);

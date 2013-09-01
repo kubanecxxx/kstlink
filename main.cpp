@@ -5,15 +5,21 @@
 #include <QFile>
 #include "QDebug"
 #include "gdbserver.h"
-#include <QApplication>
-unsigned int log_level = 3;
+#include <QDBusConnection>
 
+unsigned int log_level = 1;
 int main(int argc, char *argv[])
 {
     Q_INIT_RESOURCE(resources);
-    QApplication a(argc, argv);
+    QCoreApplication a(argc, argv);
 
-    a.setQuitOnLastWindowClosed(false);
+    bool ok = QDBusConnection::sessionBus().registerService("org.kubanec.kstlink");
+    if (!ok)
+    {
+        ERR("Application already running");
+    }
+
+    QDBusConnection::sessionBus().registerObject("/qstlink",&a);
 
     //parse input params
     QVector<QByteArray> input_pars;
@@ -30,7 +36,6 @@ int main(int argc, char *argv[])
     bool verifyonly = false;
     bool masserase = false;
     bool stop = false;
-    bool bar = true;
     bool run = false;
     int port = 4242;
     for (int i = 0 ; i< input_pars.count(); i++)
@@ -60,10 +65,6 @@ int main(int argc, char *argv[])
         {
             verifyonly = true;
         }
-        else if (input_pars[i] == "--nogui")
-        {
-            bar = false;
-        }
         else if (input_pars[i] == "--erase")
         {
             masserase = true;
@@ -81,6 +82,7 @@ int main(int argc, char *argv[])
             qDebug() << "unrecognized parameter:" << input_pars[i];
         }
     }
+
 
     if (flashonly && verifyonly)
     {
@@ -123,11 +125,12 @@ int main(int argc, char *argv[])
         //run gdbserver
         try
         {
-            new GdbServer(&a,mcu,notverify,port,file,bar,stop);
+            new GdbServer(&a,mcu,notverify,port,file,stop);
         } catch (QString data)
         {
             WARN(data);
         }
+
         return a.exec();
     }
 }

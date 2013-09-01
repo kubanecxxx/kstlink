@@ -7,8 +7,10 @@
 #include "QByteArray"
 #include "stm100.h"
 #include <QTimer>
+#include "qstlinkadaptor.h"
+#include <QStringList>
 
-class QStLink : public QObject
+class QStLink : public QStlinkAdaptor
 {
     Q_OBJECT
 public:
@@ -32,12 +34,13 @@ public:
     } stlink_properties_t;
 
     typedef enum {Thread, Handler, Unknown} mode_t;
+    QStringList mode_list;
 
     //info
     int GetStlinkMode(QString * text = NULL);
     version_t GetStlinkVersion();
     bool IsCoreHalted();
-    int GetCoreID();
+    quint32 GetCoreID();
     inline int GetChipID(){return StProperties.chipID;}
     inline QString GetCoreStatus() {RefreshCoreStatus(); return StProperties.CoreState;}
     inline stlink_properties_t GetState(){return StProperties;}
@@ -52,6 +55,7 @@ public:
     void WriteRegister(uint8_t reg_idx, uint32_t data);
     uint32_t ReadRegister(uint8_t reg_idx);
     mode_t GetMode();
+    QString GetModeString() {return mode_list[static_cast<int>(GetMode())];}
 
     //memory commands
     void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer);
@@ -89,15 +93,6 @@ public:
     void BreakpointRemoveAll();
 
     QByteArray GetMapFile();
-
-signals:
-    void Erasing(int percent);
-    void Flashing(int percent);
-    void Reading(int percent);
-    void CoreHalted(uint32_t address);
-    void CoreRunning();
-    void Verification(bool ok);
-    void CommunicationFailed();
 
 private slots:
     void timeout (void);
