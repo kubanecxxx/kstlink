@@ -67,6 +67,9 @@ protected:
     flash_t FLASH_CONST;
 
 private:
+    void writeSegment(const QByteArray & seg,int number);
+    bool ready;
+    int prevLen;
 };
 
 #endif // STMABSTRACT_H

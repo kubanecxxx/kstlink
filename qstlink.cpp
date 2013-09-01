@@ -60,8 +60,7 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
      ***************************/
     temp = ReadMemoryWord(CM3_REG_FP_CTRL);
     temp = (temp >> 4 & 0xF);
-    breaks.resize(temp);
-    temp = ReadMemoryWord(CM3_REG_FP_CTRL);
+    breaks.resize(temp); temp = ReadMemoryWord(CM3_REG_FP_CTRL);
     temp = (temp >> 8) & 0xF;
     lit_count = temp;
     BreakpointRemoveAll();
@@ -85,7 +84,7 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
      */
     QByteArray tx;
     int i;
-    for (i = 0 ; i < 10000; i++)
+    for (i = 0 ; i < 1024*10; i++)
         tx.append(i);
     EXECUTION_TIME(WriteRam(0x20000000,tx); , wr);
     float speed = 1.0 *i / wr_result;
@@ -94,6 +93,9 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
 
     EXECUTION_TIME(ReadRam(0x20000000,10000,rx); , read);
     float speed2 = 1.0 *10000 / read_result;
+
+    EXECUTION_TIME(ReadRam(0x08000000,10000,rx); , readFl);
+    float speed3 = 1.0 *10000 / readFl_result;
 
     rx.clear();
 #endif

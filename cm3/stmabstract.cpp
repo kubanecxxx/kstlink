@@ -45,18 +45,36 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
 
     int graph = 0;
     int graph2 = segments;
+    ready = false;
+    prevLen = 0;
 
-    for (int i = 0 ; i < segments; i++ )
+    for (int i = 0 ; i < segments+1; i++ )
     {
-
         QByteArray seg = cpy.left(SEGMENT_SIZE);
         cpy.remove(0,SEGMENT_SIZE);
-        //writeram segment
-        uint32_t ramAddr = SRAM_BASE + 0x200;
-        par.WriteRam(ramAddr, seg);
+
+        EXECUTION_TIME(writeSegment(seg,i);,segment);
+
+        par.ProgrammingProcess((++graph * 100)/graph2);
+    }
+
+    par.WriteRamRegister(FLASH_CONST.CR,0);
+    FlashLock();
+}
+
+void stmAbstract::writeSegment(const QByteArray & seg, int number)
+{
+    int ram = (number % 2) * (SEGMENT_SIZE );
+    int flash =  ((number + 1 ) % 2) * (SEGMENT_SIZE )  ;
+
+
+#if 1
+    if (ready)
+    {
         //setuploader
+        uint32_t ramAddr = SRAM_BASE + 0x200 + flash;
         par.WriteRegister(REG_RAMPOINTER, ramAddr);
-        par.WriteRegister(REG_DATALENGTH,ramAddr + seg.count());
+        par.WriteRegister(REG_DATALENGTH,ramAddr + prevLen);
         par.WriteRegister(REG_PC,SRAM_BASE);
 
         //-----------------------play---------------
@@ -66,25 +84,31 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
         par.WriteRegister(16,xpsr);
         //run flashloader
         par.CoreRun();
+    }
 
+    prevLen = seg.count();
+
+    //writeram segment
+    quint32 ramAddr = SRAM_BASE + 0x200 + ram;
+    par.WriteRam(ramAddr, seg);
+
+    if (ready)
+    {
         //-----------------------------
         //wait for core halted
         int timeout = 0;
         usleep(1000);
         while(!par.IsCoreHalted())
         {
-            usleep(5000);
-            if(timeout++ == 200)
+            usleep(1000);
+            if(timeout++ == 1000)
             {
                 throw(QString("stmAbstract WriteFlash memory timeout"));
             }
         }
-
-        par.ProgrammingProcess((++graph * 100)/graph2);
     }
-
-    par.WriteRamRegister(FLASH_CONST.CR,0);
-    FlashLock();
+#endif
+    ready = true;
 }
 
 bool stmAbstract::IsLocked()
