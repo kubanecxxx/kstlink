@@ -3,7 +3,7 @@
 
 #include "stm100.h"
 
-class stm407 : public stm100
+class stm407 : public stmAbstract
 {
 public:
     stm407(QStLink & par, const pages_t & Pages);

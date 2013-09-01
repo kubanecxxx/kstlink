@@ -4,11 +4,12 @@
 #include <QMap>
 #include <QString>
 #include "stm100.h"
+#include "stmabstract.h"
 
 class Chips
 {
 public:
-    Chips(int ID);
+    Chips(int ID,QStLink &parent);
 
     typedef struct
     {
@@ -24,6 +25,9 @@ public:
     QString GetChipName();
     int GetLoader();
     uint32_t GetFlashSize();
+
+    stmAbstract * GetStm();
+    QStLink & stlink;
 
 private:
     static QMap<int,chip_st> ChipList;

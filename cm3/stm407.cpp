@@ -7,15 +7,8 @@
 #define _KEY1    0x45670123
 #define _KEY2    0xcdef89ab
 
-#define REG_RAMPOINTER      0
-#define REG_FLASHPOINTER    1
-#define REG_STATUS          2
-#define REG_DATALENGTH      4
-#define REG_PC              15
-#define SEGMENT_SIZE        0x400
-
 stm407::stm407(QStLink & par, const pages_t & Pages):
-    stm100(par,Pages)
+    stmAbstract(par,Pages)
 {
     IsLocked();
     QFile file(":/loaders/loaders/stm407/stm407.bin");
@@ -38,6 +31,13 @@ stm407::stm407(QStLink & par, const pages_t & Pages):
     FLASH_CONST.CR_BITS.PAGE_ERASE = FLASH_CR_SER;
     FLASH_CONST.CR_BITS.START = FLASH_CR_STRT;
     FLASH_CONST.CR_BITS.PROG = FLASH_CR_PG | FLASH_CR_PSIZE_1;
+}
+
+void stm407::ErasePageSetup(int PageNumber)
+{
+    uint32_t cr = par.ReadMemoryRegister(FLASH_CONST.CR);
+    cr |= (PageNumber << 3) ;
+    par.WriteRamRegister(&FLASH->CR,cr);
 }
 
 #if 0
@@ -140,9 +140,4 @@ void stm407::WriteFlash(uint32_t start , const QByteArray & data) throw (QString
 }
 #endif
 
-void stm407::ErasePageSetup(int PageNumber)
-{
-    uint32_t cr = par.ReadMemoryRegister(FLASH_CONST.CR);
-    cr |= (PageNumber << 3) ;
-    par.WriteRamRegister(&FLASH->CR,cr);
-}
+

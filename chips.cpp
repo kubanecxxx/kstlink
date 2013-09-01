@@ -1,10 +1,13 @@
 #include "chips.h"
 #include "armConstants.h"
+#include "stm100.h"
+#include "stm407.h"
 
 #define RAM(x) (x * 1024)
 QMap<int,Chips::chip_st> Chips::ChipList;
 
-Chips::Chips(int ID)
+Chips::Chips(int ID, QStLink & parent):
+    stlink(parent)
 {
     //fill map
     chip_st temp;
@@ -130,5 +133,16 @@ uint32_t Chips::GetFlashSize()
 int  Chips::GetLoader()
 {
     return ActualChip.loader;
+}
+
+stmAbstract * Chips::GetStm()
+{
+    stmAbstract * stm;
+    if (GetLoader() == 100)
+        stm = new stm100(stlink,GetFlashPages());
+    else if (GetLoader() == 407)
+        stm = new stm407(stlink,GetFlashPages());
+
+    return stm;
 }
 

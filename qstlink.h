@@ -9,6 +9,7 @@
 #include <QTimer>
 #include "qstlinkadaptor.h"
 #include <QStringList>
+#include "stmabstract.h"
 
 class QStLink : public QStlinkAdaptor
 {
@@ -132,10 +133,11 @@ private:
     void ErasingProgress(int percent){emit Erasing(percent);}
     void ProgrammingProcess(int percent) {emit Flashing(percent);}
 
-    stm100 * stm;
+    stmAbstract * stm;
 
     friend class stm100;
     friend class stm407;
+    friend class stmAbstract;
 private:
     void EnableFPB();
     typedef struct

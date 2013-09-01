@@ -38,12 +38,8 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
     /***********************
      * choose chip
      **********************/
-    Chips chip(id);
-    if (chip.GetLoader() == 100)
-        stm = new stm100(*this,chip.GetFlashPages());
-    else if (chip.GetLoader() == 407)
-        stm = new stm407(*this,chip.GetFlashPages());
-
+    Chips chip(id,*this);
+    stm = chip.GetStm();
 
     QFile fil(":/xml/map.xml");
     fil.open(QFile::ReadOnly);
