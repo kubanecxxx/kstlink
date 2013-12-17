@@ -6,6 +6,7 @@
 #include <QTcpServer>
 #include <inttypes.h>
 #include <QFile>
+#include "qstlink.h"
 
 class QStLink;
 class GdbServer : public QObject
@@ -54,6 +55,7 @@ private:
 
     int thread_id;
 
+    QMap<int,QStLink::mode_t> threaed;
 
 
 

@@ -53,6 +53,9 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     connect(stlink,SIGNAL(Erasing(int)),this,SLOT(Erasing(int)));
     connect(stlink,SIGNAL(Flashing(int)),this,SLOT(Flashing(int)));
 
+    threaed.insert(THD_MAIN,QStLink::Thread);
+    threaed.insert(THD_HAN,QStLink::Handler);
+    threaed.insert(0,QStLink::Unknown);
 }
 
 void GdbServer::MakePacket(QByteArray &checksum,QByteArray * binary)
@@ -97,10 +100,17 @@ bool GdbServer::DecodePacket(QByteArray &data)
     }
 
     int start = temp.indexOf('$');
-    int stop = temp.indexOf('#');
+    int stop = temp.indexOf('#',temp.count()-5);
 
     if (start == -1 || stop == -1)
+    {
         return false;
+    }
+
+    if (stop < data.count() - 10)
+    {
+        asm("nop");
+    }
 
     temp = temp.mid(start + 1, stop-start -1);
     data = temp;
@@ -144,15 +154,9 @@ void GdbServer::ReadyRead()
     } catch (QString data)
     {
         WARN(data);
-        /*
-        if (msg)
-        {
-            msg->setText(data);
-            msg->show();
-            msg->setStandardButtons(QMessageBox::Ok);
-            msg->setIcon(QMessageBox::Warning);
-        }
-        */
+        ans = "E00";
+        MakePacket(ans);
+        client->write(ans);
     }
 
 }
@@ -265,39 +269,14 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         ans.clear();
         MakePacket(ans);
     }
-    //get general registers r0 - r15
+    //get general registers r0 - r15 (sp,lr,pc)
     else if (data == "g")
     {
         QByteArray arr;
-        arr.resize(100);
-        stlink->ReadAllRegisters((uint32_t *)arr.data());
+        QVector<quint32> regs;
 
-        //mode_t mode = GetMode();
-        switch(thread_id)
-        {
-        //main thread
-        case THD_MAIN:
-            if (stlink->GetMode() == QStLink::Handler)
-            {
-                stlink->ReadAllRegistersStacked((uint32_t *)arr.data());
-            }
-            //arr.replace(13*4,4,arr.constData() + 18* 4,4);
-            break;
-        //handler thread
-        case THD_HAN:
-            if (stlink->GetMode() == QStLink::Handler)
-            {
-                arr.replace(13*4,4,arr.constData() + 17* 4,4);
-            }
-            else
-            {
-                arr.fill(0);
-            }
-
-            break;
-        }
-        arr.resize(64);
-
+        regs = stlink->ReadAllRegisters32(threaed.value(thread_id,QStLink::Unknown));
+        QStLink::Vector32toByteArray(arr,regs);
         ans = arr.toHex();
         MakePacket(ans);
     }
@@ -342,19 +321,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         params_t pars = ParseParams(data);
 
         uint32_t idx = pars[0].toInt(NULL,16);
-
-        QStLink::mode_t mode = stlink->GetMode();
-
-        if (idx == 24)
-        {
-            if (mode == QStLink::Handler)
-                idx = 18;
-            else
-                idx = 17;
-        }
-        else if (idx == 25)
-            idx = 16;
-        uint32_t reg = stlink->ReadRegister(idx);
+        uint32_t reg = stlink->ReadRegister(threaed.value(thread_id,QStLink::Unknown), idx);
 
         ans.resize(4);
         qToLittleEndian(reg,(uchar *)ans.data());
@@ -369,7 +336,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         QByteArray temp = QByteArray::fromHex(pars[1]);
         uint32_t val = qFromLittleEndian<uint32_t>((uchar*)temp.constData());
 
-        stlink->WriteRegister(reg,val);
+        stlink->WriteRegister(threaed.value(thread_id,QStLink::Unknown),reg,val);
 
         ans = "OK";
         MakePacket(ans);
@@ -406,7 +373,6 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                 ans = "E00";
         }
 
-        ans = "OK";
         MakePacket(ans);
     }
     //continue
@@ -437,10 +403,6 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     }
     else if (data.startsWith("vFlashErase"))
     {
-        //params_t pars = ParseParams(data);
-        //uint32_t addr = data.mid(12,8).toInt(NULL,16);
-        //uint32_t len = data.mid(21,8).toInt(NULL,16);
-
         FlashProgram.clear();
         ans = "OK";
         MakePacket(ans);
@@ -499,25 +461,6 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                 if (ringGdb.count() > 10)
                     ringGdb.remove(0,1);
 
-                if(fil.at(i) != FlashProgram.at(i))
-                {
-                    /*
-                    if (msg)
-                    {
-                        msg->setText("Binary bad transfer via gdb");
-                        msg->setIcon(QMessageBox::Critical);
-                        msg->setStandardButtons(QMessageBox::Ok);
-                        msg->show();
-                        ans = "E01";
-
-                        ringGdb.append(FlashProgram.mid(i,5));
-                        ringFile.append(fil.mid(i,5));
-
-                        asm("nop");
-                        goto here;
-                    }
-                    */
-                }
             }
         }
 
@@ -530,30 +473,15 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
                 qDebug() << "Verified OK";
             else
             {
-                qWarning("Verification Failed");
-                /*
-                if (msg)
-                {
-                    msg->setText("Verification failed");
-                    msg->setIcon(QMessageBox::Critical);
-                    msg->setStandardButtons(QMessageBox::Ok);
-                    ans = "E01";
-                }
-                */
+                WARN("Veryfication failed");
             }
             disconnect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
-            /*
-            if (bar)
-                bar->hide();
-                */
         }
-here:
         if (ans.count() == 0)
             ans  = "OK";
         MakePacket(ans);
         asm("nop");
     }
-    //GDB_SEND(ans.toHex());
     client->write(ans);
 }
 
@@ -573,7 +501,11 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         ans.append("OK");
         MakePacket(ans);
     }
-    else if (data == "qAttached" || data == "qTStatus" || data == "qOffsets")
+    else if (data == "qAttached" ||  data == "qOffsets")
+    {
+        MakePacket(ans);
+    }
+    else if (data == "qTStatus")
     {
         MakePacket(ans);
     }
@@ -590,12 +522,15 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     }
     else if (data == "qfThreadInfo")
     {
+
         if (stlink->GetMode() == QStLink::Handler)
             ans = "m1,5";
         else
             ans = "m1";
 
+       /*
         ans = "m1,5";
+        */
 
         MakePacket(ans);
     }
@@ -608,22 +543,13 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     {
         params_t pars = ParseParams(data);
         int id = pars[1].toInt(NULL,16);
-        QStLink::mode_t mode = stlink->GetMode();
 
         switch(id)
         {
             case THD_MAIN:
-                if (mode == QStLink::Thread)
-                    ans = "Main Active";
-                else
-                    ans = "Main Not Active";
-                break;
+                ans = "Main thread"; break;
             case THD_HAN:
-                if (mode == QStLink::Handler)
-                    ans = "Handler Active";
-                else
-                    ans = "Handler Not Active";
-                break;
+                ans = "Handler"; break;
         }
 
         ans = ans.toHex();
@@ -689,18 +615,6 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
             }
 
             qDebug() << text;
-/*
-            if (msg)
-            {
-                msg->setText(text);
-                msg->setStandardButtons(QMessageBox::Ok);
-                if (temp == 0)
-                    msg->setIcon(QMessageBox::Information);
-                else
-                    msg->setIcon(QMessageBox::Critical);
-                msg->show();
-            }
-*/
             delete file;
         }
         else if (arr == "erase")

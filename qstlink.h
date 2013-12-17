@@ -11,6 +11,28 @@
 #include <QStringList>
 #include "stmabstract.h"
 
+class cm3Regs
+{
+public:
+    typedef struct
+    {
+        quint64 r[13];
+        quint64 pc;
+        quint64 lr;
+        quint64 sp;
+        //r15 - program counter
+        quint64 xpsr;
+        quint64 fpscr;  //floating point status registr and control
+    } cm3_regs_t;
+
+    void fill(const QVector<quint64> & raw);
+private:
+    cm3_regs_t data;
+};
+
+typedef enum {XPSR = 16, SP = 13,LR = 14,PC=15, MSP = 17, PSP = 18 } reg_idx_t;
+//MSP - handler stack, PSP - thread stack
+
 class QStLink : public QStlinkAdaptor
 {
     Q_OBJECT
@@ -53,20 +75,19 @@ public:
     void CoreRun();
     void CoreSingleStep();
     void SysReset();
-    void WriteRegister(uint8_t reg_idx, uint32_t data);
-    uint32_t ReadRegister(uint8_t reg_idx);
     mode_t GetMode();
     QString GetModeString() {return mode_list[static_cast<int>(GetMode())];}
+
+    //register commands
+    QVector<quint64> ReadAllRegisters64(mode_t context,bool cached = false);
+    QVector<quint32> ReadAllRegisters32(mode_t context, bool cached = false);
+    void WriteRegister(mode_t context, uint8_t reg_idx, uint32_t data, bool cached = false);
+    uint32_t ReadRegister(mode_t context, uint8_t reg_idx, bool cached = false);
+
 
     //memory commands
     void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer);
     void WriteRam(uint32_t address, const QByteArray & buffer) throw (QString);
-
-    void ReadAllRegistersStacked(uint32_t * regs);
-    void ReadAllRegisters(uint32_t * regs)
-    {
-        ReadAllRegisters(regs,84);
-    }
 
     uint32_t ReadMemoryWord(uint32_t address);
     uint32_t ReadMemoryRegister(volatile uint32_t * reg);
@@ -95,11 +116,17 @@ public:
 
     QByteArray GetMapFile();
 
+    //aux functions
+    static void Vector32toByteArray(QByteArray & dest, const QVector<quint32> & input);
+
 private slots:
     void timeout (void);
 
 private:    
-    void ReadAllRegisters(void * regs, int size);
+    void RefreshRegisters();
+
+    void WriteRegister(uint8_t reg_idx, uint32_t data);
+    uint32_t ReadRegister(uint8_t reg_idx);
 
     QLibusb * usb;
 
@@ -155,27 +182,18 @@ private:
 
      QByteArray MapFile;
 
-     //arm stm32 register set
-     typedef struct
-     {
-         uint32_t r[15];
-         uint32_t pc;
-         //r15 - program counter
-         //uint32_t s[32];
-         uint32_t xpsr;
-         uint32_t main_sp;
-         uint32_t process_sp;
-         uint8_t primask;
-         uint8_t control;
-         uint8_t basepri;
-         uint8_t faultmask;
-         uint32_t fpscr;
-         uint32_t vata[32];
-     } cm3_regs_t;
-
-     cm3_regs_t regs_human;
-     cm3_regs_t regs_human_stacked;
      mode_t ThreadMode;
+
+     const int registerCount;
+     const int registerSize;
+     const int rS;
+     QVector<quint64> regsRaw;
+     QVector<quint64> regsThread;
+     QVector<quint64> regsHandler;
+     QMap<mode_t, QVector<quint64>* > contexts;
+     cm3Regs cm3regs_raw,cm3regs_thread,cm3regs_handler;
 };
+
+
 
 #endif // QSTLINK_H

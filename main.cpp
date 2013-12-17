@@ -7,7 +7,7 @@
 #include "gdbserver.h"
 #include <QDBusConnection>
 
-unsigned int log_level = 1;
+unsigned int log_level = 3;
 int main(int argc, char *argv[])
 {
     Q_INIT_RESOURCE(resources);
