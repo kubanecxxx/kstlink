@@ -40,8 +40,8 @@ public slots:
     virtual void CoreRun() = 0;
     virtual void CoreSingleStep() = 0;
     virtual void SysReset() = 0;
-    virtual void WriteRegister(quint8 reg_idx, quint32 data) = 0;
-    virtual quint32 ReadRegister(quint8 reg_idx) = 0;
+    //virtual void WriteRegister(quint8 reg_idx, quint32 data) = 0;
+    //virtual quint32 ReadRegister(quint8 reg_idx) = 0;
     virtual QString GetModeString() = 0;
 
     //ram memory commands

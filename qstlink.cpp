@@ -112,12 +112,6 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
     contexts.insert(Handler,&regsHandler);
     contexts.insert(Thread,&regsThread);
 
-    RefreshRegisters();
-    QVector<quint32> je = ReadAllRegisters32(Thread);
-    QByteArray ar;
-    Vector32toByteArray(ar,je);
-
-    asm("nop");
 }
 
 void QStLink::WriteRegister(mode_t context, uint8_t reg_idx, uint32_t data, bool cached)
@@ -129,13 +123,23 @@ quint32 QStLink::ReadRegister(mode_t context, uint8_t reg_idx, bool cached)
 {
     quint32 reg = 0;
     //gdb asks register with index 25 to be XPSR
-    if (reg_idx < XPSR || reg_idx == 25)
+    if (reg_idx < XPSR || reg_idx >= 25)
     {
         if (!cached)
             RefreshRegisters();
         if (reg_idx == 25)
             reg_idx = XPSR;
-        reg = contexts.value(context,NULL)->at(reg_idx);
+        if (reg_idx < contexts.value(context)->count())
+            reg = contexts.value(context,NULL)->at(reg_idx);
+
+        //control, faultmask,basepri,primask
+        if (reg_idx > 25)
+        {
+            reg_idx -= 26;
+            reg_idx *= 8;
+            quint32 temp = contexts.value(context,NULL)->at(CFBP);
+            reg = (temp >> reg_idx) & 0xff;
+        }
     }
     else
     {
@@ -844,11 +848,16 @@ void cm3Regs::fill(const QVector<quint64> &raw)
 {
     for (int i = 0; i < 13; i++)
         data.r[i] = raw[i];
-    data.sp = raw[13];
-    data.lr = raw[14];
-    data.pc = raw[15];
-    data.xpsr = raw[16];
-    data.fpscr = raw[20];   //?
+    data.sp = raw[SP];
+    data.lr = raw[LR];
+    data.pc = raw[PC];
+    data.xpsr = raw[XPSR];
+    data.control_faultmask_basipri_primask = raw[CFBP];
+    quint32 temp = raw[CFBP];
+    data.control = temp >> 24;
+    data.faultmask = temp >> 16;
+    data.basepri = temp >> 8;
+    data.primask = temp;
 }
 
 void QStLink::Vector32toByteArray(QByteArray &dest, const QVector<quint32> &input)

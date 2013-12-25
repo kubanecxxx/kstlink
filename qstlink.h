@@ -22,7 +22,11 @@ public:
         quint64 sp;
         //r15 - program counter
         quint64 xpsr;
-        quint64 fpscr;  //floating point status registr and control
+        quint64 control_faultmask_basipri_primask;  //floating point status registr and control
+        quint8 control;
+        quint8 faultmask;
+        quint8 basepri;
+        quint8 primask;
     } cm3_regs_t;
 
     void fill(const QVector<quint64> & raw);
@@ -30,7 +34,7 @@ private:
     cm3_regs_t data;
 };
 
-typedef enum {XPSR = 16, SP = 13,LR = 14,PC=15, MSP = 17, PSP = 18 } reg_idx_t;
+typedef enum {XPSR = 16, SP = 13,LR = 14,PC=15, MSP = 17, PSP = 18 , CFBP = 20} reg_idx_t;
 //MSP - handler stack, PSP - thread stack
 
 class QStLink : public QStlinkAdaptor
