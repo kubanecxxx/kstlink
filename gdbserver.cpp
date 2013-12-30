@@ -56,6 +56,24 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     threaed.insert(THD_MAIN,QStLink::Thread);
     threaed.insert(THD_HAN,QStLink::Handler);
     threaed.insert(0,QStLink::Unknown);
+    QTimer * timer = new QTimer;
+    timer->start(1000);
+    connect(timer,SIGNAL(timeout()),this,SLOT(timeout()));
+    soc = NULL;
+}
+
+void GdbServer::timeout()
+{/*
+    QByteArray d;
+    d = "budak";
+    MakePacket(d);
+    d.remove(0,2);
+    d.prepend('%');
+
+
+    if (socan)
+        socan->write(d);
+        */
 }
 
 void GdbServer::MakePacket(QByteArray &checksum,QByteArray * binary)
@@ -121,6 +139,7 @@ bool GdbServer::DecodePacket(QByteArray &data)
 void GdbServer::ReadyRead()
 {
     QTcpSocket * client = qobject_cast<QTcpSocket *>(sender());
+    socan = client;
     input = client->readAll();
 
     //special packet +- interrupt
@@ -284,7 +303,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     else if (data.startsWith("m"))
     {
         params_t pars = ParseParams(data);
-        uint32_t addr = (pars[0]).toInt(NULL,16);
+        uint32_t addr = (pars[0]).toLong(NULL,16);
         if (addr == 0)
         {
             asm("nop");
@@ -301,7 +320,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
     else if ( data.startsWith("X"))
     {
         params_t pars = ParseParams(data);
-        uint32_t addr = (pars[0]).toInt(NULL,16);
+        uint32_t addr = (pars[0]).toLong(NULL,16);
         uint32_t len = pars[1].toInt(NULL,16);
         if (len > 0)
         {

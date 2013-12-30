@@ -30,7 +30,8 @@ SOURCES += main.cpp \
     #progressbar.cpp \
     kelnet.cpp \
     qstlinkadaptor.cpp \
-    cm3/stmabstract.cpp
+    cm3/stmabstract.cpp \
+    cm3debugregs.cpp
 
 HEADERS += qlibusb.h \
     qlog.h \
@@ -46,7 +47,8 @@ HEADERS += qlibusb.h \
     #progressbar.h \
     kelnet.h \
     qstlinkadaptor.h \
-    cm3/stmabstract.h
+    cm3/stmabstract.h \
+    cm3debugregs.h
 
 INCLUDEPATH += cm3
 

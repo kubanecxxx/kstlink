@@ -15,7 +15,7 @@ public:
     //api
     int Write(const QByteArray & data) throw ( QString );
     QByteArray Read(int count) throw ( QString );
-    QByteArray ReadError();
+    QByteArray ReadTrace();
 
 signals:
 

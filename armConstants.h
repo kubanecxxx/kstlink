@@ -46,7 +46,8 @@
 // cortex m3 technical reference manual
 //#define REG_CORE_ID 0xE000ED00
 #define REG_CPUID 0xE0042000
-#define CM3_REG_FP_CTRL 0xE0002000
+#define DBGMCU_CR 0xe0042004
+//#define CM3_REG_FP_CTRL 0xE0002000
 //#define CM3_REG_FP_COMP0 0xE0002008
 
 #endif // ARMCONSTANTS_H

@@ -22,7 +22,7 @@ public:
         quint64 sp;
         //r15 - program counter
         quint64 xpsr;
-        quint64 control_faultmask_basipri_primask;  //floating point status registr and control
+        quint64 control_faultmask_basipri_primask;
         quint8 control;
         quint8 faultmask;
         quint8 basepri;
@@ -37,8 +37,28 @@ private:
 typedef enum {XPSR = 16, SP = 13,LR = 14,PC=15, MSP = 17, PSP = 18 , CFBP = 20} reg_idx_t;
 //MSP - handler stack, PSP - thread stack
 
+class cm3DebugRegs;
 class QStLink : public QStlinkAdaptor
 {
+    //trase
+    struct trace
+    {
+       bool traceEnabled;
+       bool mcuConfigured;
+       quint32 coreFrequency;
+       quint32 swoFrequency;
+       quint32 bufferSize;
+
+       trace():
+           traceEnabled(false),
+           mcuConfigured(false),
+           coreFrequency(0),
+           swoFrequency(2e6),
+           bufferSize(1024)
+       {
+       }
+    } trace;
+
     Q_OBJECT
 public:
     explicit QStLink(QObject *parent, const QByteArray &mcu,bool stop = false);
@@ -65,12 +85,12 @@ public:
 
     //info
     int GetStlinkMode(QString * text = NULL);
-    version_t GetStlinkVersion();
+    const version_t & GetStlinkVersion();
     bool IsCoreHalted();
     quint32 GetCoreID();
     inline int GetChipID(){return StProperties.chipID;}
-    inline QString GetCoreStatus() {RefreshCoreStatus(); return StProperties.CoreState;}
-    inline stlink_properties_t GetState(){return StProperties;}
+    inline QString  GetCoreStatus() {RefreshCoreStatus(); return StProperties.CoreState;}
+    inline const stlink_properties_t & GetState(){return StProperties;}
     inline int GetBreakpointCount() {return breaks.count();}
     inline QString GetMcuName() {return Name;}
 
@@ -99,6 +119,14 @@ public:
     void WriteRamWord(uint32_t address, uint32_t data);
     void WriteRamByte(uint32_t address, uint8_t data);
     void WriteRamHalfWord(uint32_t address, uint16_t data);
+
+    //trace commands
+    void traceSetCoreFrequency(quint32 freq) {trace.coreFrequency = freq;}
+    void traceEnable() throw(QString);
+    void traceDisable() throw(QString);
+    void traceConfigureMCU();
+    void traceUnconfigureMCU();
+    void traceRead(QByteArray & data);
 
     bool FlashVerify(const QByteArray & data);
 
@@ -191,11 +219,16 @@ private:
      const int registerCount;
      const int registerSize;
      const int rS;
+
+     //registers and contexts
      QVector<quint64> regsRaw;
      QVector<quint64> regsThread;
      QVector<quint64> regsHandler;
      QMap<mode_t, QVector<quint64>* > contexts;
      cm3Regs cm3regs_raw,cm3regs_thread,cm3regs_handler;
+     cm3DebugRegs * debug;
+
+
 };
 
 

@@ -83,7 +83,7 @@ QByteArray QLibusb::Read(int count) throw ( QString )
     return ret;
 }
 
-QByteArray QLibusb::ReadError()
+QByteArray QLibusb::ReadTrace()
 {
     unsigned char  buffer [1000];
     int length = 0;
@@ -92,7 +92,7 @@ QByteArray QLibusb::ReadError()
     int tries = 20;
     while (1)
     {
-        libusb_bulk_transfer(handle,EPERROR,buffer,1000, &length,10);
+        libusb_bulk_transfer(handle,EP_TRACE,buffer,1000, &length,10);
         ret.append((char *)buffer,length);
 
         if (tries-- == 0)

@@ -27,10 +27,12 @@ private slots:
     void Erasing(int perc);
     void Flashing(int perc);
     void Verify(int perc);
+    void timeout(void);
 
 private:
     QStLink * stlink;
     QTcpServer * server;
+    QTcpSocket * socan;
     const int port;
 
     typedef QVector<QByteArray> params_t;

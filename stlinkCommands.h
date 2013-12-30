@@ -7,7 +7,7 @@
 
 #define EPOUT  0x02
 #define EPIN    0x81
-#define EPERROR 0x82
+#define EP_TRACE 0x83
 
 //ram write/readment size
 #define SEGMENT_SIZE 512
@@ -53,6 +53,10 @@
 #define STLINK_DEBUG_WRITEDEBUGREG	0x0f
 #define STLINK_DEBUG_ENTER_SWD		0xa3
 #define STLINK_DEBUG_ENTER_JTAG	0x00
+
+#define STLINK_DEBUG_APIV2_START_TRACE_RX	0x40
+#define STLINK_DEBUG_APIV2_STOP_TRACE_RX	0x41
+#define STLINK_DEBUG_APIV2_GET_TRACE_NB		0x42
 
 // TODO - possible poor names...
 #define STLINK_SWD_ENTER 0x30
