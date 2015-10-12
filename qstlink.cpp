@@ -115,10 +115,6 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
 
     mode_list << "Thread" << "Handler"<< "Unknown";
 
-    contexts.insert(Unknown,&regsRaw);
-    contexts.insert(Handler,&regsHandler);
-    contexts.insert(Thread,&regsThread);
-
     //prepare trace buffer
     for (int i = 0 ; i < 32; i++)
     {
@@ -257,125 +253,46 @@ void QStLink::traceFormatData(const QByteArray & data)
     }
 }
 
-void QStLink::WriteRegister(mode_t context, uint8_t reg_idx, uint32_t data, bool cached)
+void QStLink::UnstackContext(QVector<quint32> &context, uint32_t sp)
 {
+    QByteArray buf;
+    ReadRam32(sp,8*4,buf);
 
+    context.clear();
+
+
+    //R0, R1 ,R2, R3, R12, LR, PC, xPSR
+    for (int i = 0 ; i < 8 ; i++)
+    {
+        QByteArray num = buf.mid(i*4,4);
+        quint32 n = ReadUint32(num);
+        context.push_back(n);
+    }
 }
 
-quint32 QStLink::ReadRegister(mode_t context, uint8_t reg_idx, bool cached)
-{
-    quint32 reg = 0;
-    //gdb asks register with index 25 to be XPSR
-    if (reg_idx < XPSR || reg_idx >= 25)
-    {
-        if (!cached)
-            RefreshRegisters();
-        if (reg_idx == 25)
-            reg_idx = XPSR;
-        if (reg_idx < contexts.value(context)->count())
-            reg = contexts.value(context,NULL)->at(reg_idx);
-
-        //MSP, PSP
-        if (reg_idx == 0x1E)
-        {
-            reg = regsRaw[MSP];
-        }
-        else if (reg_idx == 0x1F)
-        {
-            reg = regsRaw[PSP];
-        }
-        //control, faultmask,basepri,primask
-        else if (reg_idx > 25)
-        {
-            reg_idx -= 26;
-            reg_idx *= 8;
-            quint32 temp = contexts.value(context,NULL)->at(CFBP);
-            reg = (temp >> reg_idx) & 0xff;
-        }
-    }
-    else
-    {
-        //these registers are invalid
-        reg = 0x44444444;
-    }
-
-    return reg;
-}
-
-void QStLink::RefreshRegisters()
+// raw data
+QByteArray QStLink::RefreshRegisters()
 {
     BOTHER("Core read all registers");
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_READALLREGS);
     CommandDebug(tx,rx,rS);
 
-    GetMode();
-
-    for (int i = 0; i < registerCount; i++)
-    {
-        quint64 reg = 0;
-        memcpy(&reg,rx.constData()+i*registerSize,registerSize);
-        regsRaw[i] = reg;
-    }
-    cm3regs_raw.fill(regsRaw);
-
-    if (ThreadMode == Handler)
-    {
-        //in handler
-        regsHandler = regsRaw;
-        //I have to unstack registers from process stack
-        //pushed by hardware
-        //during enter to exception handler r0-r4,r12, lr,pc,xpsr
-        quint64 psp = regsRaw[PSP];
-
-        quint32 pole[8];
-        for (int i = 0; i < 8; i++)
-        {
-            pole[i] = ReadMemoryWord(psp + (4*i));
-        }
-
-        regsThread = regsRaw;
-        for (int i = 0 ; i< 4 ; i++)
-            regsThread[i] =pole[i];
-        regsThread[12] = pole[4];
-        regsThread[LR] = pole[5];
-        regsThread[PC] = pole[6];
-        regsThread[XPSR] = pole[7];
-        // and choose process stack pointer
-        regsThread[SP] = psp;
-    }
-    else if (ThreadMode == Thread)
-    {
-        regsThread = regsRaw;
-        regsHandler.fill(0);
-        regsHandler[SP] = regsRaw[MSP];
-    }
-
-    cm3regs_thread.fill(regsThread);
-    cm3regs_handler.fill(regsHandler);
+    return rx;
 }
 
-QVector<quint64> QStLink::ReadAllRegisters64(mode_t context, bool cached)
+
+QVector<quint32> QStLink::ReadAllRegisters32()
 {
-    if (!cached)
-        RefreshRegisters();
+    QByteArray rx = RefreshRegisters();
 
-    QVector<quint64> t;
-    QVector<quint64> * p = contexts.value(context,NULL);
-    Q_ASSERT(p);
-
-    t = p->mid(0,16);
-
-    return t;
-}
-
-QVector<quint32> QStLink::ReadAllRegisters32(mode_t context, bool cached)
-{
-    QVector<quint64> temp = ReadAllRegisters64(context,cached);
     QVector<quint32> t;
-
-    foreach (quint32 reg, temp) {
-        t.push_back(reg);
+    for (int i = 0 ; i < qMin(rx.count() / 4 , 16 ); i+= 1)
+    {
+        quint32 reg;
+        QByteArray num = rx.mid(i*4,4);
+        memcpy(&reg,num.constData(), 4);
+        t.append(reg);
     }
 
     return t;
@@ -718,6 +635,10 @@ void QStLink::CoreSingleStep()
 void QStLink::WriteRegister(uint8_t reg_idx, uint32_t data)
 {
     BOTHER("Core write register");
+
+    if (reg_idx > CFBP)
+        return;
+
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_WRITEREG);
     tx.append(reg_idx);
@@ -728,6 +649,17 @@ void QStLink::WriteRegister(uint8_t reg_idx, uint32_t data)
 
 uint32_t QStLink::ReadRegister(uint8_t reg_idx)
 {
+    uint32_t reg;
+    //control, faultmask,basepri,primask
+    if (reg_idx > 25)
+    {
+        reg_idx -= 26;
+        reg_idx *= 8;
+        quint32 temp = ReadRegister(CFBP);
+        reg = (temp >> reg_idx) & 0xff;
+        return reg;
+    }
+
     BOTHER("Core read register");
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_READREG);
@@ -859,7 +791,7 @@ int QStLink::GetStlinkMode(QString * text)
     return mode;
 }
 
-const QStLink::version_t & QStLink::GetStlinkVersion()
+const QStLink::version_t QStLink::GetStlinkVersion()
 {
     QByteArray tx;
     QByteArray rx;
@@ -1012,22 +944,6 @@ void QStLink::WriteRamHalfWord(uint32_t address, uint16_t data)
     QByteArray buf;
     FillArrayEndian16(buf,data);
     WriteRam8(address,buf);
-}
-
-void cm3Regs::fill(const QVector<quint64> &raw)
-{
-    for (int i = 0; i < 13; i++)
-        data.r[i] = raw[i];
-    data.sp = raw[SP];
-    data.lr = raw[LR];
-    data.pc = raw[PC];
-    data.xpsr = raw[XPSR];
-    data.control_faultmask_basipri_primask = raw[CFBP];
-    quint32 temp = raw[CFBP];
-    data.control = temp >> 24;
-    data.faultmask = temp >> 16;
-    data.basepri = temp >> 8;
-    data.primask = temp;
 }
 
 void QStLink::Vector32toByteArray(QByteArray &dest, const QVector<quint32> &input)

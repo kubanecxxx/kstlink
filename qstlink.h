@@ -12,30 +12,9 @@
 #include "stmabstract.h"
 #include <QBuffer>
 
-class cm3Regs
-{
-public:
-    typedef struct
-    {
-        quint64 r[13];
-        quint64 pc;
-        quint64 lr;
-        quint64 sp;
-        //r15 - program counter
-        quint64 xpsr;
-        quint64 control_faultmask_basipri_primask;
-        quint8 control;
-        quint8 faultmask;
-        quint8 basepri;
-        quint8 primask;
-    } cm3_regs_t;
 
-    void fill(const QVector<quint64> & raw);
-private:
-    cm3_regs_t data;
-};
-
-typedef enum {XPSR = 16, SP = 13,LR = 14,PC=15, MSP = 17, PSP = 18 , CFBP = 20} reg_idx_t;
+typedef enum {XPSR = 16, SP = 13,LR = 14,PC=15, MSP = 17, PSP = 18 , CFBP = 20 , PRIMASK=26,BASEPRI= 27,
+             FAULTMASK = 28, CONTROL = 29} reg_idx_t;
 //MSP - handler stack, PSP - thread stack
 
 class cm3DebugRegs;
@@ -86,7 +65,7 @@ public:
 
     //info
     int GetStlinkMode(QString * text = NULL);
-    const version_t & GetStlinkVersion();
+    const version_t GetStlinkVersion();
     bool IsCoreHalted();
     quint32 GetCoreID();
     inline int GetChipID(){return StProperties.chipID;}
@@ -104,11 +83,10 @@ public:
     QString GetModeString() {return mode_list[static_cast<int>(GetMode())];}
 
     //register commands
-    QVector<quint64> ReadAllRegisters64(mode_t context,bool cached = false);
-    QVector<quint32> ReadAllRegisters32(mode_t context, bool cached = false);
-    void WriteRegister(mode_t context, uint8_t reg_idx, uint32_t data, bool cached = false);
-    uint32_t ReadRegister(mode_t context, uint8_t reg_idx, bool cached = false);
+    QVector<quint32> ReadAllRegisters32();
     uint32_t ReadRegister(uint8_t reg_idx);
+    void WriteRegister(uint8_t reg_idx, uint32_t data);
+    void UnstackContext(QVector<quint32> & context, uint32_t sp);
 
 
     //memory commands
@@ -154,14 +132,17 @@ public:
     //aux functions
     static void Vector32toByteArray(QByteArray & dest, const QVector<quint32> & input);
     quint32 GetCycleCounter();
+    static uint32_t ReadUint32(const QByteArray & array);
+    static uint16_t ReadUint16(const QByteArray & array);
+
 
 private slots:
     void timeout (void);
 
 private:    
-    void RefreshRegisters();
+    QByteArray RefreshRegisters();
 
-    void WriteRegister(uint8_t reg_idx, uint32_t data);
+
 
 
     QLibusb * usb;
@@ -176,8 +157,6 @@ private:
     void FillArrayEndian32(QByteArray & array, uint32_t data);
     void FillArrayEndian16(QByteArray & array, uint16_t data);
 
-    uint32_t ReadUint32(const QByteArray & array);
-    uint16_t ReadUint16(const QByteArray & array);
 
     stlink_properties_t StProperties;
 
@@ -228,11 +207,11 @@ private:
      QVector<quint64> regsRaw;
      QVector<quint64> regsThread;
      QVector<quint64> regsHandler;
-     QMap<mode_t, QVector<quint64>* > contexts;
-     cm3Regs cm3regs_raw,cm3regs_thread,cm3regs_handler;
      cm3DebugRegs * debug;
 
      QMap<quint8,QBuffer *> trace_buffer;
+
+
 
 };
 

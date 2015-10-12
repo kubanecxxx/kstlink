@@ -346,7 +346,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         if (stlink->GetMode() == QStLink::Handler)
             threads = 5;
         int context = threads;
-        regs = stlink->ReadAllRegisters32(threaed.value(context,QStLink::Unknown));
+        regs = stlink->ReadAllRegisters32();
 
         QStLink::Vector32toByteArray(arr,regs);
         ans = arr.toHex();
@@ -393,7 +393,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         params_t pars = ParseParams(data);
 
         uint32_t idx = pars[0].toInt(NULL,16);
-        uint32_t reg = stlink->ReadRegister(threaed.value(thread_id,QStLink::Unknown), idx);
+        uint32_t reg = stlink->ReadRegister(idx);
 
         ans.resize(4);
         qToLittleEndian(reg,(uchar *)ans.data());
@@ -407,8 +407,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         uint8_t reg = pars[0].toInt(NULL,16);
         QByteArray temp = QByteArray::fromHex(pars[1]);
         uint32_t val = qFromLittleEndian<uint32_t>((uchar*)temp.constData());
-
-        stlink->WriteRegister(threaed.value(thread_id,QStLink::Unknown),reg,val);
+        stlink->WriteRegister(reg,val);
 
         ans = "OK";
         MakePacket(ans);
@@ -683,6 +682,19 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         {
             stlink->FlashMassClear();
             qDebug() << "Erased";
+        }
+        else if (arr == "PSP")
+        {
+            quint32 psp = stlink->ReadRegister(PSP);
+            QVector<quint32> vec;
+            stlink->UnstackContext(vec,psp);
+            QList<quint32> lst;
+            lst = vec.toList();
+            qDebug( ) << "PSP: " << QString("0x%1").arg(psp,0,16);
+            while(lst.count())
+            {
+                qDebug() << QString("0x%1").arg(lst.takeLast(),0,16);
+            }
         }
         else
         {

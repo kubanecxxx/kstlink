@@ -5,7 +5,6 @@
 #define REG_FLASHPOINTER    1
 #define REG_STATUS          2
 #define REG_DATALENGTH      4
-#define REG_PC              15
 #define SEGMENT_SIZE        0x400
 
 stmAbstract::stmAbstract(QStLink & father,const pages_t & _pages):
@@ -73,13 +72,13 @@ void stmAbstract::writeSegment(const QByteArray & seg, int number)
         uint32_t ramAddr = SRAM_BASE + 0x200 + flash;
         par.WriteRegister(REG_RAMPOINTER, ramAddr);
         par.WriteRegister(REG_DATALENGTH,ramAddr + prevLen);
-        par.WriteRegister(REG_PC,SRAM_BASE);
+        par.WriteRegister(PC,SRAM_BASE);
 
         //-----------------------play---------------
         //force thumb mode
-        uint32_t xpsr = par.ReadRegister(16);
+        uint32_t xpsr = par.ReadRegister(XPSR);
         xpsr |= 1<<24;
-        par.WriteRegister(16,xpsr);
+        par.WriteRegister(XPSR,xpsr);
         //run flashloader
         par.CoreRun();
     }
