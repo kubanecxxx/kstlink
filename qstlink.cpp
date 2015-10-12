@@ -9,7 +9,7 @@
 #include "stm407.h"
 #include "cm3debugregs.h"
 
-#define writeDebugWord(STRUCT,MEMBER,data)
+#define writeDebugWord(STRUCT,MEMBER,data) WriteRamWord(debug->address(STRUCT,MEMBER),data)
 #define readDebugWord(STRUCT,MEMBER) (ReadMemoryWord(debug->address(STRUCT,MEMBER)))
 
 QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
@@ -118,10 +118,24 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
     contexts.insert(Unknown,&regsRaw);
     contexts.insert(Handler,&regsHandler);
     contexts.insert(Thread,&regsThread);
+
+    //prepare trace buffer
+    for (int i = 0 ; i < 32; i++)
+    {
+        QBuffer * buf;
+        trace_buffer.insert(i, buf =  new QBuffer);
+        buf->open(QIODevice::ReadWrite);
+    }
+
+   // traceSetCoreFrequency(168e6);
+   // traceEnable();
+   // traceConfigureMCU();
 }
 
-void QStLink::traceConfigureMCU()
+bool QStLink::traceConfigureMCU()
 {
+    if (!trace.traceEnabled)
+        return false;
     Q_ASSERT(trace.coreFrequency);
     quint32 t = readDebugWord(CoreDebug,DHCSR);
     t &= 0x0000FFFF;
@@ -131,7 +145,7 @@ void QStLink::traceConfigureMCU()
     writeDebugWord(CoreDebug,DEMCR,CoreDebug_DEMCR_TRCENA_Msk);
 
     //DWT
-    //stl->WriteRamWord(address(DWT,CTRL),0x400003FE);
+    //WriteRamWord(debug->address(DWT,CTRL),0x400003FE);
 
     //TPIU setup
     writeDebugWord(TPI,FFCR,0x0100);    //disabled formater
@@ -151,9 +165,15 @@ void QStLink::traceConfigureMCU()
     writeDebugWord(ITM,TPR,0xf);        //all channels from user mode
     writeDebugWord(ITM,IMCR,0);
     writeDebugWord(ITM,IWR,1);          //integration
+
+    writeDebugWord(TPI,ITCTRL,0);
+
+    trace.mcuConfigured = true;
+
+    return true;
 }
 
-void QStLink::traceUnconfigureMCU()
+bool QStLink::traceUnconfigureMCU()
 {
     // STM register DBGMCU_CR to release PB3 pin
     quint32 t = ReadMemoryWord(DBGMCU_CR);
@@ -164,12 +184,16 @@ void QStLink::traceUnconfigureMCU()
     t = readDebugWord(CoreDebug,DEMCR);
     t &= ~CoreDebug_DEMCR_TRCENA_Msk;
     writeDebugWord(CoreDebug,DEMCR,CoreDebug_DEMCR_TRCENA_Msk);
+
+    trace.mcuConfigured = false;
+
+    return true;
 }
 
-void QStLink::traceRead(QByteArray &data)
+bool QStLink::traceRead(QByteArray &data)
 {
     if (!(trace.traceEnabled && trace.mcuConfigured))
-        return;
+        return false;
 
     QByteArray tr,rt;
     tr.clear();
@@ -178,17 +202,22 @@ void QStLink::traceRead(QByteArray &data)
     size_t z = rt.at(0) | rt.at(1) << 1;
 
     if (z)
+    {
         data = usb->ReadTrace();
+        return true;
+    }
+
+    return false;
 }
 
-void QStLink::traceEnable() throw (QString)
+bool QStLink::traceEnable()
 {
-    if (trace.coreFrequency)
-        throw("Core frequency for trasing is not set");
+    if (!trace.coreFrequency)
+        return false;
     Q_ASSERT(trace.coreFrequency);
 
     int size = trace.bufferSize;
-    int freq = trace.mcuConfigured;
+    int freq = trace.swoFrequency;
     QByteArray tr,r;
     tr.append(STLINK_DEBUG_APIV2_START_TRACE_RX);
     tr.append(size);
@@ -200,9 +229,10 @@ void QStLink::traceEnable() throw (QString)
     CommandDebug(tr,r,2);
 
     trace.traceEnabled = true;
+    return false;
 }
 
-void QStLink::traceDisable() throw(QString)
+bool QStLink::traceDisable()
 {
     if (trace.mcuConfigured)
         traceUnconfigureMCU();
@@ -212,6 +242,19 @@ void QStLink::traceDisable() throw(QString)
     CommandDebug(tr,r,2);
 
     trace.traceEnabled = false;
+    return true;
+}
+
+void QStLink::traceFormatData(const QByteArray & data)
+{
+    for (int i = 0 ; i < data.count() ; i+= 2)
+    {
+        quint8 stream = data.at(i) - 1;
+        quint8 character = data.at(i + 1);
+
+        bool ok = trace_buffer.value(stream)->putChar(character);
+        asm("nop");
+    }
 }
 
 void QStLink::WriteRegister(mode_t context, uint8_t reg_idx, uint32_t data, bool cached)
@@ -232,8 +275,17 @@ quint32 QStLink::ReadRegister(mode_t context, uint8_t reg_idx, bool cached)
         if (reg_idx < contexts.value(context)->count())
             reg = contexts.value(context,NULL)->at(reg_idx);
 
+        //MSP, PSP
+        if (reg_idx == 0x1E)
+        {
+            reg = regsRaw[MSP];
+        }
+        else if (reg_idx == 0x1F)
+        {
+            reg = regsRaw[PSP];
+        }
         //control, faultmask,basepri,primask
-        if (reg_idx > 25)
+        else if (reg_idx > 25)
         {
             reg_idx -= 26;
             reg_idx *= 8;
@@ -365,7 +417,23 @@ void QStLink::timeout()
         emit CoreRunning();
     }
 
-    //debug->printDebugRegisters(cm3DebugRegs::TPI );
+    QByteArray ar;
+
+    if (traceRead(ar))
+    {
+        traceFormatData(ar);
+        trace_buffer.value(0)->seek(0);
+        QByteArray buf = trace_buffer.value(0)->readAll();
+        qDebug() << buf;
+    }
+
+    asm("nop");
+}
+
+quint32 QStLink::GetCycleCounter()
+{
+    quint32 i = ReadMemoryWord(debug->address(DWT,CYCCNT));
+    return i;
 }
 
 bool QStLink::BreakpointWrite(uint32_t address)
@@ -474,7 +542,6 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
     int temp = length;
     int size;
     //divide into smaller segments
-    int graph = 0, graph2 = (length + SEGMENT_SIZE -1) /SEGMENT_SIZE;
     while(temp > 0)
     {
         if (temp > SEGMENT_SIZE)
@@ -495,7 +562,9 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
         address += SEGMENT_SIZE;
 
         if (buffer.count() > 1024)
-            emit Reading((++graph * 100) / graph2);
+        {
+            emit Reading(100*buffer.count() / length);
+        }
     }
 
     //delete added bytes
@@ -679,6 +748,7 @@ void QStLink::SysReset()
     CommandDebug(tx,rx,2);
 
     RefreshCoreStatus();
+    emit CoreResetRequested();
 }
 
 void QStLink::RefreshCoreStatus()

@@ -12,6 +12,7 @@
 @r4		bufferend
 
 _prestart:
+	cpsid i
 	nop
 	nop
 

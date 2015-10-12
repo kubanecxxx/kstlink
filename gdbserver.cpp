@@ -7,6 +7,7 @@
 #include <QtEndian>
 #include <QDir>
 #include "kelnet.h"
+#include <iostream>
 
 #define THD_MAIN 1
 #define THD_HAN 5
@@ -27,11 +28,8 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     connect(stlink,SIGNAL(CoreHalted(quint32)),this,SLOT(CoreHalted(quint32)));
     bool ok = server->listen(QHostAddress::Any,port);
 
-    qDebug() << QString("Core status: " + stlink->GetCoreStatus());
-    qDebug() << QString("Core ID: 0x%1").arg(stlink->GetCoreID(),0,16);
-    qDebug() << QString("Chip ID: 0x%1").arg(stlink->GetChipID(),0,16);
-    qDebug() << QString("Breakpoint count: %1").arg(stlink->GetBreakpointCount());
-    qDebug() << QString("Chip name: " + stlink->GetMcuName());
+
+    printMCUInfo();
 
     QFile fil(VeriFile);
     if (fil.exists())
@@ -60,6 +58,40 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
     timer->start(1000);
     connect(timer,SIGNAL(timeout()),this,SLOT(timeout()));
     soc = NULL;
+
+    qsThreadInfo = 0;
+
+    std::cout << std::endl << std::flush;
+}
+
+void GdbServer::printMCUInfo()
+{
+    QStringList lst;
+    lst << ("Thread Mode");
+    lst << "Reserved" << "NMI" << "HardFault" << "MemManage" << "BusFault";
+    lst << "Usage Fault" << "Reserved" << "Reserved" << "Reserved" << "Reserved";
+    lst << "SVCall" << "Reserved for debug" << "Reserved" << "PendSV" << "SysTick";
+
+    for (int i = 0 ; i < 250 ; i++)
+        lst << QString("IRQ%1").arg(i);
+
+    handlers_list = lst;
+
+    uint32_t xpsr = stlink->ReadRegister(XPSR);
+    uint32_t psp = stlink->ReadRegister(PSP);
+    uint32_t msp = stlink->ReadRegister(MSP);
+    uint32_t pc = stlink->ReadRegister(PC);
+
+
+    qDebug() << QString("Core status: " + stlink->GetCoreStatus());
+    qDebug() << QString("xPSR: 0x%1, (%2)").arg(xpsr,0,16 ).arg(lst.at(xpsr & 0xff));
+    qDebug() << QString("MSP/PSP 0x%1/0x%2").arg(msp,0,16).arg(psp,0,16);
+    qDebug() << QString("PC 0x%1").arg(pc,0,16);
+    qDebug() << QString("Core ID: 0x%1").arg(stlink->GetCoreID(),0,16);
+    qDebug() << QString("Chip ID: 0x%1").arg(stlink->GetChipID(),0,16);
+    qDebug() << QString("Breakpoint count: %1").arg(stlink->GetBreakpointCount());
+    qDebug() << QString("Chip name: " + stlink->GetMcuName());
+
 }
 
 void GdbServer::timeout()
@@ -76,7 +108,7 @@ void GdbServer::timeout()
         */
 }
 
-void GdbServer::MakePacket(QByteArray &checksum,QByteArray * binary)
+void GdbServer::MakePacket(QByteArray &checksum,QByteArray * binary,bool ok)
 {
     uint8_t check = 0;
 
@@ -87,7 +119,10 @@ void GdbServer::MakePacket(QByteArray &checksum,QByteArray * binary)
 
     GDB_SEND(checksum);
     checksum.prepend('$');
-    checksum.prepend('+');
+    if (ok)
+        checksum.prepend('+');
+    else
+        checksum.prepend('-');
     if (binary)
     {
         checksum.append(*binary);
@@ -108,9 +143,10 @@ void GdbServer::newConnection()
 }
 
 ///@todo checksum arq
-bool GdbServer::DecodePacket(QByteArray &data)
+int GdbServer::DecodePacket(QByteArray &data)
 {
-    QByteArray temp(data);
+    static QByteArray temp;
+    temp += data;
 
     if (data.contains("vFlashWrite"))
     {
@@ -120,9 +156,16 @@ bool GdbServer::DecodePacket(QByteArray &data)
     int start = temp.indexOf('$');
     int stop = temp.indexOf('#',temp.count()-5);
 
-    if (start == -1 || stop == -1)
+    //packet is not complete
+    if (stop == -1)
     {
-        return false;
+        WARN("part of flash data packet");
+        return 1;
+    }
+
+    if (start == -1 )
+    {
+        return -1;
     }
 
     if (stop < data.count() - 10)
@@ -132,8 +175,9 @@ bool GdbServer::DecodePacket(QByteArray &data)
 
     temp = temp.mid(start + 1, stop-start -1);
     data = temp;
+    temp.clear();
 
-    return true;
+    return 0;
 }
 
 void GdbServer::ReadyRead()
@@ -164,12 +208,16 @@ void GdbServer::ReadyRead()
         return;
     }
 
-    if (!DecodePacket(input))
-        return;
-
     try {
         //process packet
-        processPacket(client,input);
+        int ja = DecodePacket(input);
+        if (ja == 0)
+            processPacket(client,input);
+        else if (ja == 1)
+        {
+            //chvilu pockat
+            //client->write("-");
+        }
     } catch (QString data)
     {
         WARN(data);
@@ -294,7 +342,12 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         QByteArray arr;
         QVector<quint32> regs;
 
-        regs = stlink->ReadAllRegisters32(threaed.value(thread_id,QStLink::Unknown));
+        int threads = 1;
+        if (stlink->GetMode() == QStLink::Handler)
+            threads = 5;
+        int context = threads;
+        regs = stlink->ReadAllRegisters32(threaed.value(context,QStLink::Unknown));
+
         QStLink::Vector32toByteArray(arr,regs);
         ans = arr.toHex();
         MakePacket(ans);
@@ -433,7 +486,7 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         if (addr)
         {
             int64_t temp = addr - lastAddress;
-            while(temp)
+            while(temp > 0)
             {
                 lastAddress++;
                 temp = addr - lastAddress;
@@ -483,16 +536,19 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             }
         }
 
+        std::cout << "Program size " << FlashProgram.count() << " bytes" << std::flush;
         stlink->FlashWrite(FLASH_BASE,FlashProgram);
         if (!NotVerify)
         {
             connect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
-            qDebug() << "Verifying";
             if (stlink->FlashVerify(FlashProgram))
-                qDebug() << "Verified OK";
+            {
+                std::cout << std::endl << "Verification OK" << std::endl;
+                std::cout.flush();
+            }
             else
             {
-                WARN("Veryfication failed");
+                WARN("Verification failed");
             }
             disconnect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
         }
@@ -541,20 +597,12 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     }
     else if (data == "qfThreadInfo")
     {
-
-        if (stlink->GetMode() == QStLink::Handler)
-            ans = "m1,5";
-        else
-            ans = "m1";
-
-       /*
-        ans = "m1,5";
-        */
-
+       ans = "m1";
         MakePacket(ans);
     }
     else if (data == "qsThreadInfo")
     {
+
         ans = "l";
         MakePacket(ans);
     }
@@ -563,19 +611,14 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         params_t pars = ParseParams(data);
         int id = pars[1].toInt(NULL,16);
 
-        switch(id)
-        {
-            case THD_MAIN:
-                ans = "Main thread"; break;
-            case THD_HAN:
-                ans = "Handler"; break;
-        }
+        ans = getHandler().toLocal8Bit();
 
         ans = ans.toHex();
         MakePacket(ans);
     }
     else if (data.startsWith("qRcmd"))
     {
+        bool fail = false;
         params_t pars = ParseParams(data);
         QByteArray arr = QByteArray::fromHex(pars[1]);
         if (arr == "reset")
@@ -641,8 +684,15 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
             stlink->FlashMassClear();
             qDebug() << "Erased";
         }
+        else
+        {
+            qDebug() << "unknown remote command" << arr;
+            ans = "";
+            fail = true;
+        }
 
-        ans = "OK";
+        if (!fail)
+            ans = "OK";
         MakePacket(ans);
     }
 
@@ -703,19 +753,47 @@ void GdbServer::CoreHalted(uint32_t addr)
 
 }
 
+
+
+void GdbServer::progressBar(int percent, const QString & operation)
+{
+
+    if (prevOpearation != operation)
+    {
+        prevOpearation = operation;
+        std::cout << std::endl;
+        std::cout << operation.toStdString() <<  std::endl;
+    }
+
+    float progress = percent / 100.0;
+    int barWidth = 70;
+
+    std::cout << "[";
+    int pos = barWidth * progress;
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << qMin(100,percent) << " %\xd";
+    std::cout.flush();
+
+
+}
+
 void GdbServer::Erasing(int perc)
 {
-    qDebug() << QString("Erasing progress: %1\%").arg(perc);
+    progressBar(perc, "Erasing");
 }
 
 void GdbServer::Flashing(int perc)
 {
-    qDebug() << QString("Flashing progress: %1\%").arg(perc);
+    progressBar(perc,"Flashing");
 }
 
 void GdbServer::Verify(int perc)
 {
-    qDebug() << QString("Verifying progress: %1\%").arg(perc);
+    progressBar(perc,"Verifying");
 }
 
 void GdbServer::processEscapeChar(QByteArray & temp)
@@ -728,4 +806,18 @@ void GdbServer::processEscapeChar(QByteArray & temp)
             temp[i] = temp[i] ^ 0x20 ;
         }
     }
+}
+
+int GdbServer::threads()
+{
+    int thd = 1;
+    if (stlink->GetMode() == QStLink::Handler)
+        thd = 2;
+
+    return thd;
+}
+
+QString GdbServer::getHandler()
+{
+    return handlers_list.at(stlink->ReadRegister(XPSR) & 0xFF);
 }

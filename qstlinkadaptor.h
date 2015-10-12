@@ -24,6 +24,7 @@ Q_SIGNALS:
     void CoreRunning();
     void Verification(bool ok);
     void CommunicationFailed();
+    void CoreResetRequested();
 
 
 public slots:
@@ -53,6 +54,9 @@ public slots:
     //flash memory commands
     virtual void FlashMassClear() throw (QString) = 0;
     //virtual void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
+
+    //debug commands
+    virtual quint32 GetCycleCounter() = 0;
 
 };
 

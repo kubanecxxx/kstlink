@@ -83,6 +83,8 @@ int main(int argc, char *argv[])
         }
     }
 
+    qDebug() << "Build date:" << __DATE__  << __TIME__;
+
 
     if (flashonly && verifyonly)
     {

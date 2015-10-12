@@ -41,6 +41,7 @@ public:
     QString printITMRegisters();
     QString printTPIRegisters();
     QString printCoreDebugRegs();
+    void systemPrint(const QString & data, int console);
 
 private:
     debugBaseAddress_t d;
@@ -89,7 +90,7 @@ private:
     ITM_Type itm_alt;
     FPB_u_t fpb_alt;
     CoreDebug_Type cdt_alt;
-    void systemPrint(const QString & data, int console);
+
 
     static void append (QString & data, const QString & name, quint32 num, bool wrap = true);
 

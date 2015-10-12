@@ -10,6 +10,7 @@
 #include "qstlinkadaptor.h"
 #include <QStringList>
 #include "stmabstract.h"
+#include <QBuffer>
 
 class cm3Regs
 {
@@ -107,6 +108,7 @@ public:
     QVector<quint32> ReadAllRegisters32(mode_t context, bool cached = false);
     void WriteRegister(mode_t context, uint8_t reg_idx, uint32_t data, bool cached = false);
     uint32_t ReadRegister(mode_t context, uint8_t reg_idx, bool cached = false);
+    uint32_t ReadRegister(uint8_t reg_idx);
 
 
     //memory commands
@@ -122,11 +124,12 @@ public:
 
     //trace commands
     void traceSetCoreFrequency(quint32 freq) {trace.coreFrequency = freq;}
-    void traceEnable() throw(QString);
-    void traceDisable() throw(QString);
-    void traceConfigureMCU();
-    void traceUnconfigureMCU();
-    void traceRead(QByteArray & data);
+    bool traceEnable() ;
+    bool traceDisable() ;
+    bool traceConfigureMCU();
+    bool traceUnconfigureMCU();
+    bool traceRead(QByteArray & data);
+    void traceFormatData(const QByteArray & data);
 
     bool FlashVerify(const QByteArray & data);
 
@@ -150,6 +153,7 @@ public:
 
     //aux functions
     static void Vector32toByteArray(QByteArray & dest, const QVector<quint32> & input);
+    quint32 GetCycleCounter();
 
 private slots:
     void timeout (void);
@@ -158,7 +162,7 @@ private:
     void RefreshRegisters();
 
     void WriteRegister(uint8_t reg_idx, uint32_t data);
-    uint32_t ReadRegister(uint8_t reg_idx);
+
 
     QLibusb * usb;
 
@@ -228,6 +232,7 @@ private:
      cm3Regs cm3regs_raw,cm3regs_thread,cm3regs_handler;
      cm3DebugRegs * debug;
 
+     QMap<quint8,QBuffer *> trace_buffer;
 
 };
 

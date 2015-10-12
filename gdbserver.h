@@ -37,8 +37,8 @@ private:
 
     typedef QVector<QByteArray> params_t;
 
-    static void MakePacket(QByteArray & data, QByteArray * binary = NULL);
-    static bool DecodePacket(QByteArray & data);
+    static void MakePacket(QByteArray & data, QByteArray * binary = NULL, bool ok = true);
+    static int DecodePacket(QByteArray & data);
     params_t ParseParams(const QByteArray & data);
 
     void processPacket(QTcpSocket * soc,const QByteArray & rawdata);
@@ -59,7 +59,16 @@ private:
 
     QMap<int,QStLink::mode_t> threaed;
 
+    void progressBar(int percent, const QString & operation);
+    QString prevOpearation;
 
+    int qsThreadInfo;
+
+    int threads();
+    QStringList handlers_list;
+
+    void printMCUInfo(void);
+    QString getHandler();
 
 };
 
