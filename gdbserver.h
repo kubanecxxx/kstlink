@@ -70,6 +70,8 @@ private:
     void printMCUInfo(void);
     QString getHandler();
 
+    bool switched;
+
 };
 
 #endif // GDBSERVER_H

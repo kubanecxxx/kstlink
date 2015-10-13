@@ -61,6 +61,7 @@ GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int
 
     qsThreadInfo = 0;
 
+    switched = false;
     std::cout << std::endl << std::flush;
 }
 
@@ -139,6 +140,7 @@ void GdbServer::newConnection()
     qDebug() << "new connection";
     client = server->nextPendingConnection();
 
+    switched = false;
     connect(client,SIGNAL(readyRead()),this,SLOT(ReadyRead()));
 }
 
@@ -342,11 +344,9 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         QByteArray arr;
         QVector<quint32> regs;
 
-        int threads = 1;
-        if (stlink->GetMode() == QStLink::Handler)
-            threads = 5;
-        int context = threads;
         regs = stlink->ReadAllRegisters32();
+        if (switched)
+            regs = stlink->MergeContexts(regs,stlink->ReadRegister(PSP));
 
         QStLink::Vector32toByteArray(arr,regs);
         ans = arr.toHex();
@@ -393,7 +393,9 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         params_t pars = ParseParams(data);
 
         uint32_t idx = pars[0].toInt(NULL,16);
-        uint32_t reg = stlink->ReadRegister(idx);
+        uint32_t reg;
+        reg = stlink->ReadRegister(idx);
+
 
         ans.resize(4);
         qToLittleEndian(reg,(uchar *)ans.data());
@@ -407,7 +409,8 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         uint8_t reg = pars[0].toInt(NULL,16);
         QByteArray temp = QByteArray::fromHex(pars[1]);
         uint32_t val = qFromLittleEndian<uint32_t>((uchar*)temp.constData());
-        stlink->WriteRegister(reg,val);
+        if (!switched)
+            stlink->WriteRegister(reg,val);
 
         ans = "OK";
         MakePacket(ans);
@@ -695,6 +698,8 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
             {
                 qDebug() << QString("0x%1").arg(lst.takeLast(),0,16);
             }
+            switched = !switched;
+            qDebug() << switched;
         }
         else
         {

@@ -87,6 +87,7 @@ public:
     uint32_t ReadRegister(uint8_t reg_idx);
     void WriteRegister(uint8_t reg_idx, uint32_t data);
     void UnstackContext(QVector<quint32> & context, uint32_t sp);
+    QVector<quint32> MergeContexts(const QVector<quint32> & registers, uint32_t sp);
 
 
     //memory commands

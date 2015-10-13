@@ -253,6 +253,27 @@ void QStLink::traceFormatData(const QByteArray & data)
     }
 }
 
+QVector<quint32> QStLink::MergeContexts(const QVector<quint32> &registers, uint32_t sp)
+{
+    QVector<quint32> ret(registers);
+    QVector<quint32> ram;
+
+    UnstackContext(ram, sp);
+
+    QVector<int> indexes;
+    indexes << 0 << 1 << 2 << 3 << 12 << 14 << 15;
+    //indexes << 16;
+    int i = 0;
+
+    foreach(int idx, indexes)
+    {
+        ret[idx] = ram.at(i);
+        i++;
+    }
+
+    return ret;
+}
+
 void QStLink::UnstackContext(QVector<quint32> &context, uint32_t sp)
 {
     QByteArray buf;
