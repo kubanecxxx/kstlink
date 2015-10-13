@@ -79,6 +79,7 @@ public:
     void CoreRun();
     void CoreSingleStep();
     void SysReset();
+    void AssertResetPin(bool high);
     mode_t GetMode();
     QString GetModeString() {return mode_list[static_cast<int>(GetMode())];}
 

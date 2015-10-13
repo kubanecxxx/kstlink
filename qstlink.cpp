@@ -274,6 +274,15 @@ QVector<quint32> QStLink::MergeContexts(const QVector<quint32> &registers, uint3
     return ret;
 }
 
+void QStLink::AssertResetPin(bool high)
+{
+    QByteArray tx;
+    QByteArray rx;
+    tx.append(STLINK_JTAG_DRIVE_NRST);
+    tx.append(high );
+    CommandDebug(tx,rx,2);
+}
+
 void QStLink::UnstackContext(QVector<quint32> &context, uint32_t sp)
 {
     QByteArray buf;
@@ -696,9 +705,16 @@ uint32_t QStLink::ReadRegister(uint8_t reg_idx)
 void QStLink::SysReset()
 {
     BOTHER("System reset");
+
+    AssertResetPin(false);
+
+    usleep(100);
     QByteArray tx,rx;
     tx.append(STLINK_DEBUG_RESETSYS);
     CommandDebug(tx,rx,2);
+    usleep(100);
+
+    AssertResetPin(true);
 
     RefreshCoreStatus();
     emit CoreResetRequested();
