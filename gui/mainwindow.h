@@ -2,11 +2,10 @@
 #define MAINWINDOW_H1
 
 #include <QMainWindow>
-#include "tray.h"
 #include <QSystemTrayIcon>
 
 
-
+class bar;
 class QMenu;
 
 namespace Ui {
