@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/tray">
+        <file alias="stop">icons/Button-Close-icon.png</file>
+        <file alias="pause">icons/Button-Pause-icon.png</file>
+        <file alias="play">icons/Button-Play-icon.png</file>
+        <file alias="restart">icons/restart.png</file>
+        <file alias="config">icons/Settings-icon.png</file>
+        <file alias="step">icons/Step-Forward-Normal-icon.png</file>
+        <file alias="info">icons/Button-Info-icon.png</file>
+        <file alias="flash">icons/USB-Flash-Card-With-Card-Reader-icon.png</file>
+    </qresource>
+</RCC>

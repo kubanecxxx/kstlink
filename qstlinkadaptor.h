@@ -1,13 +1,24 @@
 #ifndef MAINAPPLICATIONADAPTOR_H
 #define MAINAPPLICATIONADAPTOR_H
 
+#ifdef KSTLINK_DBUS
 #include <QDBusAbstractAdaptor>
+#else
+#include <QObject>
+#endif
 #include <stdint.h>
 
-class QStlinkAdaptor : public QDBusAbstractAdaptor
+class QStlinkAdaptor :public
+        #ifdef KSTLINK_DBUS
+        QDBusAbstractAdaptor
+        #else
+        QObject
+        #endif
 {
     Q_OBJECT
+#ifdef KSTLINK_DBUS
     Q_CLASSINFO("D-Bus Interface", "org.kubanec.kstlink.stlink")
+#endif
 
 public:
     QStlinkAdaptor(QObject * parent);

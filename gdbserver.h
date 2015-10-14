@@ -13,7 +13,8 @@ class GdbServer : public QObject
 {
     Q_OBJECT
 public:
-    explicit GdbServer(QObject *parent, const QByteArray & mcu, bool notverify, int PortNumber,QByteArray & file,bool stop);
+    explicit GdbServer(QObject *parent, QStLink * stlink, bool notverify, int PortNumber,QByteArray & file);
+    QStLink * GetStlink();
     
 signals:
     

@@ -5,21 +5,20 @@
 #include <QFile>
 #include "QDebug"
 #include "gdbserver.h"
+#include <QApplication>
+
+#include "mainwindow.h"
+#include "communication.h"
+
+#ifdef KSTLINK_DBUS
 #include <QDBusConnection>
+#endif
 
 unsigned int log_level = 2;
 int main(int argc, char *argv[])
 {
     Q_INIT_RESOURCE(resources);
-    QCoreApplication a(argc, argv);
 
-    bool ok = QDBusConnection::sessionBus().registerService("org.kubanec.kstlink");
-    if (!ok)
-    {
-        ERR("Application already running");
-    }
-
-    QDBusConnection::sessionBus().registerObject("/qstlink",&a);
 
     //parse input params
     QVector<QByteArray> input_pars;
@@ -97,10 +96,48 @@ int main(int argc, char *argv[])
 
     else */
 
+
+    QCoreApplication * app = NULL;
+
+    bool gui = true;
+    bool gdb = true;
+    bool dbus = true;
+
+    //decide if gui or not
+    if (gui)
+    {
+        app = new QApplication(argc,argv);
+    }
+    else
+    {
+        app = new QCoreApplication(argc,argv);
+    }
+    //QApplication b;
+
+
+#ifdef KSTLINK_DBUS
+    if (dbus)
+    {
+        bool ok = QDBusConnection::sessionBus().registerService("org.kubanec.kstlink");
+        QDBusConnection::sessionBus().registerObject("/qstlink",app);
+
+        if (ok)
+        {
+            qDebug() << "Connected to DBUS session";
+        }
+        else
+        {
+            qFatal("Failed connecting to DBUS session");
+        }
+
+    }
+#endif
+
+
     if (masserase)
     {
         QByteArray ar;
-        QStLink st(&a,ar);
+        QStLink st(app,ar);
         st.FlashMassClear();
         qDebug() << "Erased";
     } else
@@ -116,7 +153,7 @@ int main(int argc, char *argv[])
 
         try
         {
-            new flasher(&a,fil,mcu, verifyonly,run);
+            new flasher(app,fil,mcu, verifyonly,run);
         } catch (QString data)
         {
             ERR(data);
@@ -124,16 +161,59 @@ int main(int argc, char *argv[])
     }
     else
     {
+        //run gdb server + gui without dbus
+        //run gdb server only
+        //run gui only
+
+        QStLink * stlink = NULL;
         //run gdbserver
-        try
+        if (gdb)
         {
-            new GdbServer(&a,mcu,notverify,port,file,stop);
-        } catch (QString data)
-        {
-            WARN(data);
+            //single app - gdb only once
+            try
+            {
+                stlink = new QStLink(app,mcu,stop),
+                new GdbServer(app,stlink,notverify,port,file);
+            } catch (QString data)
+            {
+                WARN(data);
+            }
         }
 
-        return a.exec();
+        //run gui part
+        if (gui)
+        {
+            //single app not necessary - guis could be more
+#ifdef KSTLINK_DBUS
+            QDBusConnection * con;
+            if (argc==2)
+            {
+                QString str (argv[1]);
+                QString bdak = QString("tcp:host=%1,port=6668").arg(str);
+                QDBusConnection con2 = QDBusConnection::connectToBus(bdak,"bus");
+                con = &con2;
+            }
+            else
+            {
+                QDBusConnection con3 = QDBusConnection::connectToBus(QDBusConnection::SessionBus,"bus");
+                con = &con3;
+            }
+
+            bool ok = con->registerService("org.kubanec.kstlinkGui");
+            if (!ok)
+            {
+                qFatal("Cannot connect to DBUS session");
+            }
+#endif
+            QApplication * a = qobject_cast<QApplication *> (app);
+            a->setQuitOnLastWindowClosed(false);
+            Communication * c = new direct(stlink,app);
+
+            new MainWindow(c,app);
+
+        }
+
+        return app->exec();
     }
 }
 

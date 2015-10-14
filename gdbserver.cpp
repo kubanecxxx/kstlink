@@ -12,14 +12,16 @@
 #define THD_MAIN 1
 #define THD_HAN 5
 
-GdbServer::GdbServer(QObject *parent, const QByteArray &mcu, bool notverify, int portnumber, QByteArray & file, bool stop) :
+GdbServer::GdbServer(QObject *parent, QStLink * st, bool notverify, int portnumber, QByteArray & file) :
     QObject(parent),
-    stlink(new QStLink(parent,mcu,stop)),
+    stlink(st),
     server(new QTcpServer(this)),
     port(portnumber),
     NotVerify(notverify),
     VeriFile(file)
 {
+    Q_ASSERT(stlink);
+
     //VeriFile = "/home/kubanec/workspace/ARMCM4-STM32F407-DISCOVERY/build/test.bin";
     new Kelnet(*stlink,parent);
 
