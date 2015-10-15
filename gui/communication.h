@@ -5,7 +5,11 @@
 #include <QObject>
 #ifdef KSTLINK_DBUS
 #include <QDBusMessage>
+#include <QDBusConnection>
 #endif
+
+#include <QList>
+#include <QVariant>
 
 class Communication : public QObject
 {
@@ -23,6 +27,8 @@ public:
         void Verification(bool ok);
         void CommunicationFailed();
         void CoreResetRequested();
+
+
 
     public slots:
         virtual quint32 GetCoreID(void) = 0;
@@ -48,8 +54,8 @@ public:
         virtual void WriteRamHalfWord(quint32 address, quint16 data) = 0;
 
         //flash memory commands
-        virtual void FlashMassClear() throw (QString) = 0;
-        //virtual void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
+        virtual void FlashMassClear() = 0;
+        virtual void FlashWrite(uint32_t address, const QByteArray & data) = 0;
 
         //debug commands
         virtual quint32 GetCycleCounter() = 0;
@@ -58,15 +64,53 @@ public:
 
 
 #ifdef KSTLINK_DBUS
-class dbus: abstract
+class DBus: public Communication
 {
     Q_OBJECT
+public:
+    explicit DBus(QDBusConnection * con, QObject * parent);
 
-    private:
-        QDBusMessage DbusCallMethod(const QString & method);
-        QString service ;
-        QString path;
-        QString interface;
+private slots:
+        void ch();
+
+public slots:
+     quint32 GetCoreID(void) ;
+     int GetStlinkMode(QString * text = NULL) ;
+     bool IsCoreHalted() ;
+     int GetChipID() ;
+     QString GetCoreStatus();
+     int GetBreakpointCount() ;
+     QString GetMcuName() ;
+    //core commands
+     void CoreStop();
+     void CoreRun();
+     void CoreSingleStep() ;
+     void SysReset();
+    //virtual void WriteRegister(quint8 reg_idx, quint32 data) = 0;
+    //virtual quint32 ReadRegister(quint8 reg_idx) = 0;
+     QString GetModeString() ;
+
+    //ram memory commands
+     quint32 ReadMemoryWord(quint32 address) ;
+     void WriteRamWord(quint32 address, quint32 data) ;
+     void WriteRamByte(quint32 address, quint8 data) ;
+     void WriteRamHalfWord(quint32 address, quint16 data) ;
+
+    //flash memory commands
+    void FlashMassClear();
+    void FlashWrite(uint32_t address, const QByteArray & data);
+
+    //debug commands
+     quint32 GetCycleCounter() ;
+
+private:
+    QDBusMessage call(const QString & method, const QList<QVariant> & args = QList<QVariant>());
+    bool connect(const QString & signal, const char * slot);
+    QString service ;
+    QString path;
+    QString interface;
+
+    QDBusConnection * con;
 };
 #endif
 
@@ -104,7 +148,8 @@ class dbus: abstract
         void WriteRamHalfWord(quint32 address, quint16 data) {link->WriteRamHalfWord(address,data);}
 
         //flash memory commands
-        void FlashMassClear() throw (QString) {link->FlashMassClear();}
+        void FlashMassClear() {link->FlashMassClear();}
+        virtual void FlashWrite(uint32_t address, const QByteArray & data)  {link->FlashWrite(address,data);}
         //virtual void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
 
         //debug commands

@@ -60,8 +60,8 @@ OTHER_FILES += \
 
 
 unix {
-    #CONFIG += qdbus
-    #DEFINES += KSTLINK_DBUS
+    CONFIG += qdbus
+    DEFINES += KSTLINK_DBUS
     INCLUDEPATH += /usr/include/libusb-1.0
     LIBS += -lusb-1.0
 }

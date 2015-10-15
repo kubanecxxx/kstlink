@@ -74,7 +74,7 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     connect(a,SIGNAL(triggered()),parent,SLOT(quit()));
 
     tray->setContextMenu(c_m);
-    tray->setIcon(QIcon(":/tray/pause"));
+    tray->setIcon(QIcon(":/tray/stop"));
 
 
     //connect communication signals
@@ -86,6 +86,8 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     connect(com,SIGNAL(Flashing(int)),this,SLOT(Flashing(int)));
     connect(com,SIGNAL(Reading(int)),this,SLOT(Reading(int)));
     connect(com,SIGNAL(CoreResetRequested()),this,SLOT(ResetRequested()));
+
+   show();
 
 }
 
@@ -104,7 +106,6 @@ void MainWindow::Core()
 
     QVariant v = sender()->property("core");
     Q_ASSERT(v.isValid());
-    qDebug() << v.toString();
     m_t  m = map.value(v.toString(),NULL);
     Q_ASSERT(m);
     (com->*m)();

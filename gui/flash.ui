@@ -33,10 +33,10 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="QLineEdit" name="lineEdit"/>
+        <widget class="QLineEdit" name="editFilename"/>
        </item>
        <item>
-        <widget class="QToolButton" name="toolButton">
+        <widget class="QToolButton" name="buttonFile">
          <property name="text">
           <string>...</string>
          </property>

@@ -63,8 +63,8 @@ public slots:
     virtual void WriteRamHalfWord(quint32 address, quint16 data) = 0;
 
     //flash memory commands
-    virtual void FlashMassClear() throw (QString) = 0;
-    //virtual void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
+    virtual void FlashMassClear()  = 0;
+    virtual void FlashWrite(uint32_t address, const QByteArray & data) = 0;
 
     //debug commands
     virtual quint32 GetCycleCounter() = 0;

@@ -33,10 +33,15 @@ int main(int argc, char *argv[])
     bool flashonly = false;
     bool notverify = false;
     bool verifyonly = false;
+
     bool masserase = false;
     bool stop = false;
     bool run = false;
     int port = 4242;
+    bool gui = true;
+    bool gdb = true;
+    bool dbus = true;
+
     for (int i = 0 ; i< input_pars.count(); i++)
     {
         if (input_pars[i].startsWith("-m"))
@@ -76,12 +81,21 @@ int main(int argc, char *argv[])
         {
             run = true;
         }
+        else if (input_pars[i] == "--nogui")
+        {
+            gui = false;
+        }
+        else if (input_pars[i] == "--nogdb")
+        {
+            gdb = false;
+        }
         else
         {
             qDebug() << "unrecognized parameter:" << input_pars[i];
         }
     }
 
+    dbus = !(gui && gdb);
     qDebug() << "Build date:" << __DATE__  << __TIME__;
 
 
@@ -99,9 +113,7 @@ int main(int argc, char *argv[])
 
     QCoreApplication * app = NULL;
 
-    bool gui = true;
-    bool gdb = true;
-    bool dbus = true;
+
 
     //decide if gui or not
     if (gui)
@@ -113,26 +125,6 @@ int main(int argc, char *argv[])
         app = new QCoreApplication(argc,argv);
     }
     //QApplication b;
-
-
-#ifdef KSTLINK_DBUS
-    if (dbus)
-    {
-        bool ok = QDBusConnection::sessionBus().registerService("org.kubanec.kstlink");
-        QDBusConnection::sessionBus().registerObject("/qstlink",app);
-
-        if (ok)
-        {
-            qDebug() << "Connected to DBUS session";
-        }
-        else
-        {
-            qFatal("Failed connecting to DBUS session");
-        }
-
-    }
-#endif
-
 
     if (masserase)
     {
@@ -169,6 +161,24 @@ int main(int argc, char *argv[])
         //run gdbserver
         if (gdb)
         {
+        #ifdef KSTLINK_DBUS
+            if (dbus)
+            {
+                bool ok = QDBusConnection::sessionBus().registerService("org.kubanec.kstlink");
+                QDBusConnection::sessionBus().registerObject("/qstlink",app);
+
+                if (ok)
+                {
+                    qDebug() << "Connected to DBUS session";
+                }
+                else
+                {
+                    qFatal("Failed connecting to DBUS session");
+                }
+
+            }
+        #endif
+
             //single app - gdb only once
             try
             {
@@ -184,30 +194,34 @@ int main(int argc, char *argv[])
         if (gui)
         {
             //single app not necessary - guis could be more
+            Communication * c;
 #ifdef KSTLINK_DBUS
-            QDBusConnection * con;
-            if (argc==2)
+            if (dbus)
             {
-                QString str (argv[1]);
-                QString bdak = QString("tcp:host=%1,port=6668").arg(str);
-                QDBusConnection con2 = QDBusConnection::connectToBus(bdak,"bus");
-                con = &con2;
+                QDBusConnection * con;
+                QDBusConnection con3 = QDBusConnection::connectToBus(QDBusConnection::SessionBus,"dbus");
+                con = &con3;
+
+
+                bool ok = true;
+                        ok = con->registerService("org.kubanec.kstlinkGui");
+                QDBusError  err = con->lastError();
+                if (!ok)
+                {
+                    qFatal("Cannot connect to DBUS session");
+                }
+                c = new DBus(con,app);
+                //c = new direct(stlink,app);
             }
             else
             {
-                QDBusConnection con3 = QDBusConnection::connectToBus(QDBusConnection::SessionBus,"bus");
-                con = &con3;
-            }
-
-            bool ok = con->registerService("org.kubanec.kstlinkGui");
-            if (!ok)
-            {
-                qFatal("Cannot connect to DBUS session");
+#endif
+                c = new direct(stlink,app);
+#ifdef KSTLINK_DBUS
             }
 #endif
             QApplication * a = qobject_cast<QApplication *> (app);
             a->setQuitOnLastWindowClosed(false);
-            Communication * c = new direct(stlink,app);
 
             new MainWindow(c,app);
 

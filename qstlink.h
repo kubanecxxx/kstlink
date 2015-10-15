@@ -113,7 +113,7 @@ public:
 
     bool FlashVerify(const QByteArray & data);
 
-    inline void FlashClear(uint32_t address, uint32_t length) throw (QString)
+    inline void FlashClear(uint32_t address, uint32_t length)
     {
         stm->EraseRange(address,length);
     }
@@ -121,7 +121,7 @@ public:
     {
         stm->EraseMass();
     }
-    inline void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
+    inline void FlashWrite(uint32_t address, const QByteArray & data)
     {
         stm->WriteFlash(address,data);
     }
