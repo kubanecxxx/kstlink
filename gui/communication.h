@@ -70,9 +70,6 @@ class DBus: public Communication
 public:
     explicit DBus(QDBusConnection * con, QObject * parent);
 
-private slots:
-        void ch();
-
 public slots:
      quint32 GetCoreID(void) ;
      int GetStlinkMode(QString * text = NULL) ;
@@ -104,7 +101,7 @@ public slots:
      quint32 GetCycleCounter() ;
 
 private:
-    QDBusMessage call(const QString & method, const QList<QVariant> & args = QList<QVariant>());
+    QDBusMessage call(const QString & method, const QList<QVariant> & args = QList<QVariant>(), bool block = true) throw (const char *);
     bool connect(const QString & signal, const char * slot);
     QString service ;
     QString path;

@@ -7,7 +7,8 @@
 #include <QDBusInterface>
 #endif
 
-Communication::Communication(QObject *parent) : QObject(parent)
+Communication::Communication(QObject *parent) :
+    QObject(parent)
 {
 
 }
@@ -20,28 +21,25 @@ DBus::DBus(QDBusConnection * connection, QObject * parent):
     Q_ASSERT(con);
     service = "org.kubanec.kstlink";
     path = "/qstlink";
-    interface = "org.kubanec.kstlink.stlink";
-    //interface = "org.qtproject.Qt.QStLink";
+
+    //why this interface????? but it works for signals
+    interface = "org.qtproject.Qt.QStLink";
 
     bool ok;
     ok = con->isConnected();
     Q_ASSERT(ok);
 
 
-    //con = QDBusConnection::sessionBus();
-
-     ok = connect("CoreRunning",SLOT(ch()));
-
+    ok = connect("CoreRunning",SIGNAL(CoreRunning()));
     ok = connect("CoreHalted",SIGNAL(CoreHalted(quint32)));
     connect("CommunicationFailed",SIGNAL(CommunicationFailed()));
-
     connect("Verification",SIGNAL(Verification(bool)));
     connect("Reading",SIGNAL(Reading(int)));
     connect("Flashing",SIGNAL(Flashing(int)));
     connect("Erasing",SIGNAL(Erasing(int)));
     connect("CoreResetRequested",SIGNAL(ResetRequested()));
 
-    //interface = "org.kubanec.kstlink.stlink";
+    interface = "org.kubanec.kstlink.stlink";
     Q_ASSERT(ok);
 }
 
@@ -50,22 +48,22 @@ bool DBus::connect(const QString &signal, const char *slot)
     return QDBusConnection::sessionBus().connect(service,path,interface,signal,this,slot);
 }
 
-void DBus::ch()
-{
-    emit CoreRunning();
-}
 
-QDBusMessage DBus::call(const QString &method,const QList<QVariant> & args)
+QDBusMessage DBus::call(const QString &method,const QList<QVariant> & args, bool block) throw (const char *)
 {
-    //QDBusInterface iface(service,path,interface,*con);
-    //Q_ASSERT(iface.isValid());
-    //iface.setTimeout(300);
-    //QDBusMessage msg = iface.call(method);
-
     QDBusMessage msg = QDBusMessage::createMethodCall(service,path,interface,method);
-    msg = con->call(msg,QDBus::Block, 300);
+    msg.setArguments(args);
 
-    //throw excpeiton
+    QDBus::CallMode m = QDBus::NoBlock;
+    if (block)
+        m = QDBus::Block;
+
+    msg = con->call(msg,m, 300);
+
+    //throw excpeiton when fault
+    QDBusMessage::MessageType t =  msg.type();
+    if (t == QDBusMessage::ErrorMessage)
+        throw ("DBus error - probably disconnected");
 
     return msg;
 }
@@ -94,6 +92,7 @@ bool DBus::IsCoreHalted()
 
 int DBus::GetChipID()
 {
+
     QDBusMessage msg = call("GetChipID");
     return msg.arguments().at(0).toInt();
 }
@@ -144,34 +143,48 @@ QString DBus::GetModeString()
 
 quint32 DBus::ReadMemoryWord(quint32 address)
 {
-    QDBusMessage msg = call("ReadMemoryWord");
-
+    QList<QVariant> lst;
+    lst.append(address);
+    QDBusMessage msg = call("ReadMemoryWord",lst);
+    return msg.arguments().at(0).toUInt();
 }
 
 void DBus::WriteRamHalfWord(quint32 address, quint16 data)
 {
-
+    QList<QVariant> lst;
+    lst.append(address);
+    lst.append(data);
+    QDBusMessage msg = call("WriteRamHalfWord",lst);
 }
 
 void DBus::WriteRamByte(quint32 address, quint8 data)
 {
-
+    QList<QVariant> lst;
+    lst.append(address);
+    lst.append(data);
+    QDBusMessage msg = call("WriteRamByte",lst);
 }
 
 void DBus::WriteRamWord(quint32 address, quint32 data)
 {
-
+    QList<QVariant> lst;
+    lst.append(address);
+    lst.append(data);
+    QDBusMessage msg = call("WriteRamWord",lst);
 }
 
 void DBus::FlashMassClear()
 {
-    QDBusMessage msg = call("FlashMassClear");
+    QDBusMessage msg = call("FlashMassClear", QList<QVariant>() , false);
 
 }
 
 void DBus::FlashWrite(uint32_t address, const QByteArray &data)
 {
-
+    QList<QVariant> lst;
+    lst.append(address);
+    lst.append(data);
+    call("FlashWrite2",lst,false);
 }
 
 quint32 DBus::GetCycleCounter()

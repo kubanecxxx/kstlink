@@ -65,6 +65,7 @@ public slots:
     //flash memory commands
     virtual void FlashMassClear()  = 0;
     virtual void FlashWrite(uint32_t address, const QByteArray & data) = 0;
+    virtual void FlashWrite2(uint32_t address, QByteArray  data) = 0;
 
     //debug commands
     virtual quint32 GetCycleCounter() = 0;

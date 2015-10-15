@@ -56,6 +56,8 @@ private slots:
     void Core(void);
 
     bool refreshState(void);
+    void  flashWriteRequest(const QString & filename);
+
 private:
 
     bar * prog;

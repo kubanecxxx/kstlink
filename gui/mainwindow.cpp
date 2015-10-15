@@ -7,6 +7,7 @@
 #include "bar.h"
 #include "communication.h"
 #include <qdebug.h>
+#include <QFile>
 
 MainWindow::MainWindow(Communication * comu, QObject *parent) :
     QMainWindow(NULL),
@@ -28,10 +29,17 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     p = new Info(s,this);
     w->AddPage(p);
 
-    p = new Flash(this);
-    w->AddPage(p);
+    Flash * flash = new Flash(this);
+    w->AddPage(flash);
 
-    bool ok;
+    connect(flash,SIGNAL(flashEraseRequest()),com,SLOT(FlashMassClear()));
+    connect(flash,SIGNAL(flashWriteRequest(const QString & )),this,SLOT(flashWriteRequest(const QString &)));
+    connect(com,SIGNAL(Flashing(int)),flash,SLOT(Flashing(int)));
+    connect(com,SIGNAL(Reading(int)),flash,SLOT(Verifing(int)));
+    connect(com,SIGNAL(Erasing(int)),flash,SLOT(Erasing(int)));
+    connect(com,SIGNAL(Verification(bool)),flash,SLOT(Success(bool)));
+
+
 
     tray = new QSystemTrayIcon;
     tray->show();
@@ -91,6 +99,12 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
 
 }
 
+void MainWindow::flashWriteRequest(const QString &filename)
+{
+    QFile fn(filename);
+    com->FlashWrite(FLASH_BASE, fn.readAll());
+}
+
 typedef void (Communication::*m_t)(void) ;
 void MainWindow::Core()
 {
@@ -101,7 +115,6 @@ void MainWindow::Core()
     map.insert("CoreStop", &Communication::CoreStop);
     map.insert("CoreSingleStep",&Communication::CoreSingleStep);
     map.insert("Erase",&Communication::FlashMassClear);
-
 
 
     QVariant v = sender()->property("core");
@@ -206,7 +219,13 @@ void MainWindow::timeout()
         tray->show();
         timer->stop();
 
-        prog->ShowTicks(com->GetCycleCounter());
+        try
+        {
+            prog->ShowTicks(com->GetCycleCounter());
+        } catch (const char* e)
+        {
+            //dbus error
+        }
    }
    else
    {
@@ -217,11 +236,18 @@ void MainWindow::timeout()
 
 bool MainWindow::refreshState()
 {
-    s.chipID = com->GetChipID();
-    s.coreID = com->GetCoreID();
-    s.mcuName = com->GetMcuName();
-    s.coreMode = com->GetModeString();
-    s.breakpointCount = com->GetBreakpointCount();
+    try
+    {
+        s.chipID = com->GetChipID();
+        s.coreID = com->GetCoreID();
+        s.mcuName = com->GetMcuName();
+        s.coreMode = com->GetModeString();
+        s.breakpointCount = com->GetBreakpointCount();
+    } catch (const char * e)
+    {
+        //dbus error
+        return false;
+    }
 
     return true;
 }

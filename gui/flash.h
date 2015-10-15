@@ -27,6 +27,7 @@ public slots:
     void Verifing(int percent);
     void Flashing(int percent);
     void Success(bool ok);
+    void FlasingStarted();
 
 private:
     Ui::Flash *ui;

@@ -13,7 +13,7 @@ Flash::Flash(QWidget *parent) :
     ui->buttonErase->setProperty("core","Erase");
     connect(ui->buttonErase, SIGNAL(clicked()), this,SIGNAL(flashEraseRequest()));
 
-    ui->editFilename->setText("/home/kuba/workspace/test/build/ch.bin");
+    ui->editFilename->setText("/home/kubanec/workspaces/workspace/test/build/ch.bin");
 }
 
 Flash::~Flash()
@@ -68,6 +68,11 @@ void Flash::Erasing(int percent)
 }
 
 void Flash::Success(bool ok)
+{
+
+}
+
+void Flash::FlasingStarted()
 {
 
 }

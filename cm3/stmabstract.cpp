@@ -1,5 +1,6 @@
 #include "stmabstract.h"
 #include "qstlink.h"
+#include <QDebug>
 
 #define REG_RAMPOINTER      0
 #define REG_FLASHPOINTER    1

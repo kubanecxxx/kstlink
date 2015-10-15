@@ -124,7 +124,13 @@ public:
     inline void FlashWrite(uint32_t address, const QByteArray & data)
     {
         stm->WriteFlash(address,data);
+
     }
+    inline void FlashWrite2(uint32_t address, QByteArray data)
+    {
+        stm->WriteFlash(address,data);
+    }
+
     bool BreakpointWrite(uint32_t address);
     bool BreakpointRemove(uint32_t address);
     void BreakpointRemoveAll();
