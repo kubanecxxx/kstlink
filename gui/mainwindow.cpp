@@ -25,9 +25,10 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     WidgetTreePages * w = new WidgetTreePages(this);
     setCentralWidget(w);
 
-    Page * p;
-    p = new Info(s,this);
-    w->AddPage(p);
+    Info * info;
+    info = new Info(s,this);
+    w->AddPage(info);
+    connect(this,SIGNAL(EnableWidget(bool)),info,SLOT(EnableWidget(bool)));
 
     Flash * flash = new Flash(this);
     w->AddPage(flash);
@@ -35,9 +36,11 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     connect(flash,SIGNAL(flashEraseRequest()),com,SLOT(FlashMassClear()));
     connect(flash,SIGNAL(flashWriteRequest(const QString & )),this,SLOT(flashWriteRequest(const QString &)));
     connect(com,SIGNAL(Flashing(int)),flash,SLOT(Flashing(int)));
-    connect(com,SIGNAL(Reading(int)),flash,SLOT(Verifing(int)));
+    connect(com,SIGNAL(Verifing(int)),flash,SLOT(Verifing(int)));
     connect(com,SIGNAL(Erasing(int)),flash,SLOT(Erasing(int)));
     connect(com,SIGNAL(Verification(bool)),flash,SLOT(Success(bool)));
+    connect(this,SIGNAL(EnableWidget(bool)),flash,SLOT(EnableWidget(bool)));
+    connect(com,SIGNAL(ErasingActive(bool)),flash,SLOT(ErasingActive(bool)));
 
 
 
@@ -68,12 +71,15 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     c_m->addSeparator();
     a = c_m->addAction(QIcon(":/tray/pause"),tr("Stop core"));
     a->setProperty("core","CoreStop");
+    connect(this,SIGNAL(EnableWidget(bool)),a,SLOT(setEnabled(bool)));
     connect(a,SIGNAL(triggered()),this,SLOT(Core()));
     a = c_m->addAction(QIcon(":/tray/play"),tr("Start core"));
     a->setProperty("core","CoreRun");
+    connect(this,SIGNAL(EnableWidget(bool)),a,SLOT(setEnabled(bool)));
     connect(a,SIGNAL(triggered()),this,SLOT(Core()));
     a = c_m->addAction(QIcon(":/tray/restart"),tr("Reset core"));
     a->setProperty("core","SysReset");
+    connect(this,SIGNAL(EnableWidget(bool)),a,SLOT(setEnabled(bool)));
     connect(a,SIGNAL(triggered()),this,SLOT(Core()));
 
     c_m->addSeparator();
@@ -92,17 +98,68 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     connect(com,SIGNAL(Verification(bool)),this,SLOT(Verification(bool)));
     connect(com,SIGNAL(Erasing(int)),this,SLOT(Erasing(int)));
     connect(com,SIGNAL(Flashing(int)),this,SLOT(Flashing(int)));
-    connect(com,SIGNAL(Reading(int)),this,SLOT(Reading(int)));
+    connect(com,SIGNAL(Verifing(int)),this,SLOT(Reading(int)));
     connect(com,SIGNAL(CoreResetRequested()),this,SLOT(ResetRequested()));
+    connect(com,SIGNAL(ErasingActive(bool)),this,SLOT(ErasingActive(bool)));
+    connect(com,SIGNAL(FlashingActive(bool)),this,SLOT(FlashingActive(bool)));
 
-   show();
+    erasing = false;
+    flashing = false;
+    connected_state = false;
 
+    message = new QLabel();
+    statusBar()->addPermanentWidget(message);
+
+    show();
+
+}
+
+void MainWindow::FlashingActive(bool active)
+{
+    flashing = active;
+    messageControl();
+}
+
+void MainWindow::ErasingActive(bool active)
+{
+    erasing = active;
+    messageControl();
+}
+
+void MainWindow::messageControl()
+{
+    QString msg;
+    if (connected_state)
+        msg = tr ("Connected");
+    else
+        msg = tr("Disconnected");
+
+
+    if (erasing)
+    {
+        msg = tr("Erasing");
+    }
+
+    if (flashing )
+    {
+        msg = tr("Flashing");
+    }
+
+    if (!erasing && era_prev)
+    {
+        statusBar()->showMessage(tr("Erased"),3000);
+    }
+
+    era_prev = erasing;
+    message->setText(msg);
 }
 
 void MainWindow::flashWriteRequest(const QString &filename)
 {
     QFile fn(filename);
-    com->FlashWrite(FLASH_BASE, fn.readAll());
+    fn.open(QIODevice::ReadOnly);
+    QByteArray d = fn.readAll();
+    com->FlashWrite(FLASH_BASE, d);
 }
 
 typedef void (Communication::*m_t)(void) ;
@@ -133,7 +190,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::tooLongNic()
 {
-    tray->hide();
+    //tray->hide();
     prog->hide();
 }
 
@@ -166,13 +223,21 @@ void MainWindow::CoreRunning()
 
 void MainWindow::Verification(bool ok)
 {
+    QString msg;
+    QSystemTrayIcon::MessageIcon icon;
     if (ok)
-        tray->showMessage("Kstlink", tr("Verification successful"),
-                          QSystemTrayIcon::Information,3000);
+    {
+        icon = QSystemTrayIcon::Information;
+         msg = tr("Verification successful");
+    }
     else
-        tray->showMessage("Kstlink",tr("Verification Failure"),
-                          QSystemTrayIcon::Critical,30000);
+    {
+        icon = QSystemTrayIcon::Critical;
+        msg = tr ("Verification Failed");
+    }
 
+    tray->showMessage("Kstlink", msg,icon,3000);
+    statusBar()->showMessage(msg,5000);
     prog->hide();
 }
 
@@ -183,7 +248,7 @@ void MainWindow::Erasing(int percent)
 
 void MainWindow::Reading(int percent)
 {
-    prog->ShowPercents(percent,tr("Reading"));
+    prog->ShowPercents(percent,tr("Verifing"));
 }
 
 void MainWindow::Flashing(int percent)
@@ -196,6 +261,13 @@ void MainWindow::Flashing(int percent)
 void MainWindow::timeout()
 {
    bool ok = refreshState();
+
+   if (old_state != ok)
+   {
+        connected(ok);
+        old_state = ok;
+   }
+
 
    if (ok)
    {
@@ -234,6 +306,15 @@ void MainWindow::timeout()
    }
 }
 
+void MainWindow::connected(bool connected)
+{
+    emit EnableWidget(connected);
+
+    connected_state = connected;
+    messageControl();
+
+}
+
 bool MainWindow::refreshState()
 {
     try
@@ -246,7 +327,15 @@ bool MainWindow::refreshState()
     } catch (const char * e)
     {
         //dbus error
+        s.chipID = 0;
+        s.coreID = 0;
+        s.mcuName = tr("None");
+        s.coreMode = tr("Invalid");
+        s.breakpointCount = 0;
+        s.StopAddress = 0;
+        s.run = tr("Invalid");
         return false;
+
     }
 
     return true;

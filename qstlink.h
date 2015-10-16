@@ -92,7 +92,7 @@ public:
 
 
     //memory commands
-    void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer);
+    void ReadRam(uint32_t address, uint32_t length, QByteArray & buffer, bool verify = false);
     void WriteRam(uint32_t address, const QByteArray & buffer) throw (QString);
 
     uint32_t ReadMemoryWord(uint32_t address);
@@ -115,20 +115,24 @@ public:
 
     inline void FlashClear(uint32_t address, uint32_t length)
     {
+        emit ErasingActive(true);
         stm->EraseRange(address,length);
+        emit ErasingActive(false);
     }
     inline void FlashMassClear() throw (QString)
     {
+        emit ErasingActive(true);
         stm->EraseMass();
+        emit ErasingActive(false);
     }
-    inline void FlashWrite(uint32_t address, const QByteArray & data)
+    inline void FlashWrite(quint32 address, const QByteArray & data, bool verify)
     {
+        emit FlashingActive(true);
         stm->WriteFlash(address,data);
 
-    }
-    inline void FlashWrite2(uint32_t address, QByteArray data)
-    {
-        stm->WriteFlash(address,data);
+        if (verify)
+            FlashVerify(data);
+        emit FlashingActive(false);
     }
 
     bool BreakpointWrite(uint32_t address);
@@ -149,10 +153,6 @@ private slots:
 
 private:    
     QByteArray RefreshRegisters();
-
-
-
-
     QLibusb * usb;
 
     QTimer & timer;
@@ -182,6 +182,7 @@ private:
 
     void ErasingProgress(int percent){emit Erasing(percent);}
     void ProgrammingProcess(int percent) {emit Flashing(percent);}
+    void ErasingActiveF(bool val) {emit ErasingActive(val);}
 
     stmAbstract * stm;
 

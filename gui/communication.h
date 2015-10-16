@@ -27,7 +27,9 @@ public:
         void Verification(bool ok);
         void CommunicationFailed();
         void CoreResetRequested();
-
+        void ErasingActive(bool active);
+        void Verifing(int percent);
+        void FlashingActive(bool active);
 
 
     public slots:
@@ -146,7 +148,7 @@ private:
 
         //flash memory commands
         void FlashMassClear() {link->FlashMassClear();}
-        virtual void FlashWrite(uint32_t address, const QByteArray & data)  {link->FlashWrite(address,data);}
+        virtual void FlashWrite(uint32_t address, const QByteArray & data)  {link->FlashWrite(address,data,true);}
         //virtual void FlashWrite(uint32_t address, const QByteArray & data) throw (QString)
 
         //debug commands

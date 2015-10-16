@@ -152,11 +152,7 @@ int main(int argc, char *argv[])
         }
     }
     else
-    {
-        //run gdb server + gui without dbus
-        //run gdb server only
-        //run gui only
-
+    {      
         QStLink * stlink = NULL;
         //run gdbserver
         if (gdb)
@@ -205,13 +201,11 @@ int main(int argc, char *argv[])
 
                 bool ok = true;
                         ok = con->registerService("org.kubanec.kstlinkGui");
-                QDBusError  err = con->lastError();
                 if (!ok)
                 {
                     qFatal("Cannot connect to DBUS session");
                 }
                 c = new DBus(con,app);
-                //c = new direct(stlink,app);
             }
             else
             {

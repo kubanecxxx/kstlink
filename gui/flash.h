@@ -27,11 +27,14 @@ public slots:
     void Verifing(int percent);
     void Flashing(int percent);
     void Success(bool ok);
-    void FlasingStarted();
+    void EnableWidget(bool enable);
+    void ErasingActive(bool active);
 
 private:
     Ui::Flash *ui;
     QString lastDir;
+    bool enabled;
+    bool erasing;
 
 
 signals:

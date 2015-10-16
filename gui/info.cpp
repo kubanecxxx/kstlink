@@ -40,3 +40,11 @@ void Info::timeout()
     ui->labCoreStatus->setText(s.run);
     ui->labPcAddress->setText(QString("0x%1").arg(s.StopAddress,0,16));
 }
+
+void Info::EnableWidget(bool enable)
+{
+    ui->butReset->setEnabled(enable);
+    ui->butRun->setEnabled(enable);
+    ui->butStep->setEnabled(enable);
+    ui->butStop->setEnabled(enable);
+}

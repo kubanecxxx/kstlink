@@ -13,7 +13,8 @@ Flash::Flash(QWidget *parent) :
     ui->buttonErase->setProperty("core","Erase");
     connect(ui->buttonErase, SIGNAL(clicked()), this,SIGNAL(flashEraseRequest()));
 
-    ui->editFilename->setText("/home/kubanec/workspaces/workspace/test/build/ch.bin");
+    ui->editFilename->setText("/home/kuba/workspace/test/build/ch.bin");
+    erasing = false;
 }
 
 Flash::~Flash()
@@ -21,6 +22,13 @@ Flash::~Flash()
     delete ui;
 }
 
+void Flash::EnableWidget(bool enable)
+{
+    QFile fn(ui->editFilename->text());
+    ui->buttonErase->setEnabled(enable);
+    ui->buttonFlash->setEnabled(enable && fn.exists());
+    enabled = enable;
+}
 
 
 void Flash::on_buttonFile_clicked()
@@ -39,40 +47,48 @@ void Flash::on_buttonFile_clicked()
 
 void Flash::on_buttonFlash_clicked()
 {
-    if (ui->editFilename->text().isEmpty())
+    QFile fn(ui->editFilename->text());
+    if (!fn.exists())
         return;
 
+
     emit flashWriteRequest(ui->editFilename->text());
+    EnableWidget(false);
 }
 
 void Flash::on_editFilename_textChanged(const QString &arg1)
 {
     QFile fn(arg1);
-    ui->buttonFlash->setEnabled(fn.exists());
+    ui->buttonFlash->setEnabled(fn.exists() && enabled);
 
+}
+
+void Flash::ErasingActive(bool active)
+{
+    erasing = active;
 }
 
 void Flash::Flashing(int percent)
 {
-
+    ui->labelOperation->setText(tr("Flashing"));
+    ui->progress->setValue(percent);
 }
 
 void Flash::Verifing(int percent)
 {
-
+    ui->labelOperation->setText(tr("Verifing"));
+    ui->progress->setValue(percent);
 }
 
 void Flash::Erasing(int percent)
 {
-
+    ui->labelOperation->setText(tr("Erasing"));
+    ui->progress->setValue(percent);
 }
 
 void Flash::Success(bool ok)
 {
-
+    EnableWidget(true);
 }
 
-void Flash::FlasingStarted()
-{
 
-}

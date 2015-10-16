@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QSystemTrayIcon>
+#include <QLabel>
 
 
 class bar;
@@ -33,11 +34,14 @@ public:
     explicit MainWindow(Communication * communication, QObject *parent = 0);
     ~MainWindow();
 
+signals:
+    void EnableWidget(bool enable);
 
 
 private:
     Ui::MainWindow *ui;
     QSystemTrayIcon * tray;
+    void connected(bool connected);
 
 private slots:
     void CoreHalted(quint32);
@@ -49,6 +53,8 @@ private slots:
     void Reading(int);
     void timeout();
     void ResetRequested();
+    void ErasingActive(bool active);
+    void FlashingActive(bool active);
 
     void activated(QSystemTrayIcon::ActivationReason);
     void tooLongNic(void);
@@ -64,6 +70,14 @@ private:
     QTimer * timer;
     s_t s;
     Communication * com;
+    QLabel * message;
+    bool old_state;
+    bool erasing;
+    bool flashing;
+    bool era_prev;
+    bool connected_state;
+
+    void messageControl();
 
 };
 

@@ -25,6 +25,7 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
     while (cpy.count() % 4)
         cpy.append('\0');
 
+    par.ErasingActiveF(true);
     EraseRange(start,start+cpy.count(),false);
 
     FlashUnlock();
@@ -60,6 +61,7 @@ void stmAbstract::WriteFlash(uint32_t start, const QByteArray &data) throw (QStr
 
     par.WriteRamRegister(FLASH_CONST.CR,0);
     FlashLock();
+    par.ErasingActiveF(false);
 }
 
 void stmAbstract::writeSegment(const QByteArray & seg, int number)

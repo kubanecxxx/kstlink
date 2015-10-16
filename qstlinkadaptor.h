@@ -30,12 +30,15 @@ Q_SIGNALS:
     void Erasing(int percent);
     void Flashing(int percent);
     void Reading(int percent);
+    void Verifing(int percent);
     void CoreHalted(quint32 address);
     void CoreHalted();
     void CoreRunning();
     void Verification(bool ok);
     void CommunicationFailed();
     void CoreResetRequested();
+    void ErasingActive(bool active);
+    void FlashingActive(bool active);
 
 
 public slots:
@@ -64,8 +67,7 @@ public slots:
 
     //flash memory commands
     virtual void FlashMassClear()  = 0;
-    virtual void FlashWrite(uint32_t address, const QByteArray & data) = 0;
-    virtual void FlashWrite2(uint32_t address, QByteArray  data) = 0;
+    virtual void FlashWrite(quint32 address, const QByteArray & data, bool verify) = 0;
 
     //debug commands
     virtual quint32 GetCycleCounter() = 0;

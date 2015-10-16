@@ -28,7 +28,7 @@ flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, boo
     uint32_t neco = data.count() / 1024;
     if (!verifonly)
     {
-        stlink.FlashWrite(FLASH_BASE,data);
+        stlink.FlashWrite(FLASH_BASE,data,true);
         stlink.SysReset();
     }
     bool ok = stlink.FlashVerify(data);

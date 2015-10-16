@@ -474,7 +474,7 @@ QByteArray QStLink::GetMapFile()
  * @param length data length in bytes
  * @param buffer output data buffer
  *********************************************************/
-void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
+void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer, bool verify)
 {
     BOTHER("Read ram");
 
@@ -510,7 +510,10 @@ void QStLink::ReadRam(uint32_t address, uint32_t length, QByteArray & buffer)
 
         if (buffer.count() > 1024)
         {
-            emit Reading(100*buffer.count() / length);
+            int per = 100*buffer.count() / length;
+            emit Reading(per);
+            if (verify)
+                    emit Verifing(per);
         }
     }
 
@@ -569,7 +572,7 @@ void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QStri
 bool QStLink::FlashVerify(const QByteArray &data)
 {
     QByteArray rx;
-    ReadRam(FLASH_BASE,data.count(), rx);
+    ReadRam(FLASH_BASE,data.count(), rx, true);
 
     for (int i = 0 ; i < rx.count(); i++)
     {

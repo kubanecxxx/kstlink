@@ -52,6 +52,7 @@ GdbServer::GdbServer(QObject *parent, QStLink * st, bool notverify, int portnumb
 
     connect(stlink,SIGNAL(Erasing(int)),this,SLOT(Erasing(int)));
     connect(stlink,SIGNAL(Flashing(int)),this,SLOT(Flashing(int)));
+    connect(stlink,SIGNAL(Verifing(int)),this,SLOT(Verify(int)));
 
     threaed.insert(THD_MAIN,QStLink::Thread);
     threaed.insert(THD_HAN,QStLink::Handler);
@@ -541,21 +542,8 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         }
 
         std::cout << "Program size " << FlashProgram.count() << " bytes" << std::flush;
-        stlink->FlashWrite(FLASH_BASE,FlashProgram);
-        if (!NotVerify)
-        {
-            connect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
-            if (stlink->FlashVerify(FlashProgram))
-            {
-                std::cout << std::endl << "Verification OK" << std::endl;
-                std::cout.flush();
-            }
-            else
-            {
-                WARN("Verification failed");
-            }
-            disconnect(stlink,SIGNAL(Reading(int)),this,SLOT(Verify(int)));
-        }
+        stlink->FlashWrite(FLASH_BASE,FlashProgram, !NotVerify);
+
         if (ans.count() == 0)
             ans  = "OK";
         MakePacket(ans);
@@ -639,7 +627,7 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
             QFile moje(VeriFile);
 
             if (moje.open(QFile::ReadOnly))
-                stlink->FlashWrite(FLASH_BASE,moje.readAll());
+                stlink->FlashWrite(FLASH_BASE,moje.readAll(),true);
         }
         else if (arr.startsWith("verify"))
         {
@@ -768,11 +756,7 @@ void GdbServer::CoreHalted(uint32_t addr)
         MakePacket(ans);
         soc->write(ans);
     }
-
-
 }
-
-
 
 void GdbServer::progressBar(int percent, const QString & operation)
 {
@@ -796,8 +780,6 @@ void GdbServer::progressBar(int percent, const QString & operation)
     }
     std::cout << "] " << qMin(100,percent) << " %\xd";
     std::cout.flush();
-
-
 }
 
 void GdbServer::Erasing(int perc)

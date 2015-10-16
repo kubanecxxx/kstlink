@@ -38,6 +38,9 @@ DBus::DBus(QDBusConnection * connection, QObject * parent):
     connect("Flashing",SIGNAL(Flashing(int)));
     connect("Erasing",SIGNAL(Erasing(int)));
     connect("CoreResetRequested",SIGNAL(ResetRequested()));
+    connect("ErasingActive",SIGNAL(ErasingActive(bool)));
+    connect("Verifing",SIGNAL(Verifing(int)));
+    connect("FlashingActive",SIGNAL(FlashingActive(bool)));
 
     interface = "org.kubanec.kstlink.stlink";
     Q_ASSERT(ok);
@@ -184,7 +187,8 @@ void DBus::FlashWrite(uint32_t address, const QByteArray &data)
     QList<QVariant> lst;
     lst.append(address);
     lst.append(data);
-    call("FlashWrite2",lst,false);
+    lst.append(true);
+    call("FlashWrite",lst,false);
 }
 
 quint32 DBus::GetCycleCounter()
@@ -210,5 +214,7 @@ direct::direct(QStLink * stlink ,QObject *parent):
     connect(stlink,SIGNAL(Erasing(int)),this,SIGNAL(Erasing(int)));
     connect(stlink,SIGNAL(Flashing(int)),this, SIGNAL(Flashing(int)));
     connect(stlink,SIGNAL(Reading(int)),this,SIGNAL(Reading(int)));
+    connect(stlink,SIGNAL(Verifing(int)),this,SIGNAL(Verifing(ing)));
     connect(stlink,SIGNAL(Verification(bool)),this,SIGNAL(Verification(bool)));
+    connect(stlink,SIGNAL(FlashingActive(bool)),this, SIGNAL(FlashingActive(bool)));
 }

@@ -23,6 +23,9 @@ private:
     Ui::Info *ui;
     const s_t & s;
 
+public slots:
+    void EnableWidget(bool enable);
+
 private slots:
     void timeout(void);
 };
