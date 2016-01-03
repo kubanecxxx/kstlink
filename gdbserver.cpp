@@ -483,18 +483,27 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         FlashProgram.clear();
         ans = "OK";
         MakePacket(ans);
+        segment = 0;
+        offset = 0;
+        lastAddress = 0;
     }
     else if (data.startsWith("vFlashWrite"))
     {
         uint32_t addr = (data.mid(12,data.indexOf(":",12)-12)).toInt(NULL,16) - FLASH_BASE;
 
-        if (addr)
+        if (!segment++)
         {
-            int64_t temp = addr - lastAddress;
-            while(temp > 0)
+            offset = addr;
+        }
+
+        //fill zeros - program may be shiftet - bootloader and so on
+        if (addr )
+        {
+            int64_t tempo = addr - offset - lastAddress;
+            while(tempo-- > 0)
             {
                 lastAddress++;
-                temp = addr - lastAddress;
+                //tempo = addr - lastAddress;
                 FlashProgram.append('\0');
             }
         }
@@ -542,7 +551,8 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         }
 
         std::cout << "Program size " << FlashProgram.count() << " bytes" << std::flush;
-        stlink->FlashWrite(FLASH_BASE,FlashProgram, !NotVerify);
+        stlink->FlashWrite(offset + FLASH_BASE,FlashProgram, !NotVerify);
+        segment = 0;
 
         if (ans.count() == 0)
             ans  = "OK";
@@ -617,6 +627,8 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
         {
             stlink->SysReset();
             stlink->BreakpointRemoveAll();
+
+
         }
         else if (arr == "Reset")
         {
@@ -648,7 +660,7 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
 
             if (file->open(QFile::ReadOnly))
             {
-                bool ok = stlink->FlashVerify(file->readAll());
+                bool ok = stlink->FlashVerify(file->readAll(),0);
                 if (ok)
                     temp =  0;
                 else

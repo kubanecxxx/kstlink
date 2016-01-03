@@ -13,13 +13,15 @@ VPATH += $$PWD
 include (treePages/widgetTreePages.pro)
 
 HEADERS += \
-    communication.h
+    communication.h \
+    ktray.h
 
 SOURCES += \
     communication.cpp \
     mainwindow.cpp \
     info.cpp \
-    flash.cpp
+    flash.cpp \
+    ktray.cpp
 
 HEADERS  += \
     mainwindow.h \

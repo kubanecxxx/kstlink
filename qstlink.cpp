@@ -8,11 +8,12 @@
 #include "chips.h"
 #include "stm407.h"
 #include "cm3debugregs.h"
+#include <iostream>
 
 #define writeDebugWord(STRUCT,MEMBER,data) WriteRamWord(debug->address(STRUCT,MEMBER),data)
 #define readDebugWord(STRUCT,MEMBER) (ReadMemoryWord(debug->address(STRUCT,MEMBER)))
 
-QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
+QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop, bool trace_enable, long freq) :
     QStlinkAdaptor(parent),
     usb(new QLibusb(this)),
     timer(*new QTimer(this)),
@@ -115,17 +116,22 @@ QStLink::QStLink(QObject *parent, const QByteArray & mcu, bool stop) :
 
     mode_list << "Thread" << "Handler"<< "Unknown";
 
-    //prepare trace buffer
-    for (int i = 0 ; i < 32; i++)
+    trace.traceRequestEnabled = trace_enable;
+    trace.coreFrequency = freq;
+    if (trace_enable)
     {
-        QBuffer * buf;
-        trace_buffer.insert(i, buf =  new QBuffer);
-        buf->open(QIODevice::ReadWrite);
-    }
+        //prepare trace buffer
+        for (int i = 0 ; i < 32; i++)
+        {
+            QByteArray * buf;
+            trace_buffer.insert(i, buf =  new QByteArray);
+        }
 
-   // traceSetCoreFrequency(168e6);
-   // traceEnable();
-   // traceConfigureMCU();
+        traceEnable();
+        traceConfigureMCU();
+        std::cout << "Trace support enabled on frequency " << freq << std::endl;
+        std::cout << "MCU Trace unit configured - listening on channel 0" << std::endl;
+    }
 }
 
 bool QStLink::traceConfigureMCU()
@@ -247,9 +253,8 @@ void QStLink::traceFormatData(const QByteArray & data)
     {
         quint8 stream = data.at(i) - 1;
         quint8 character = data.at(i + 1);
-
-        bool ok = trace_buffer.value(stream)->putChar(character);
-        asm("nop");
+        if (stream < 32)
+            trace_buffer.value(stream)->append(character);
     }
 }
 
@@ -261,6 +266,7 @@ QVector<quint32> QStLink::MergeContexts(const QVector<quint32> &registers, uint3
     UnstackContext(ram, sp);
 
     QVector<int> indexes;
+    //R0, R1 ,R2, R3, R12, LR, PC, xPSR
     indexes << 0 << 1 << 2 << 3 << 12 << 14 << 15;
     //indexes << 16;
     int i = 0;
@@ -270,6 +276,8 @@ QVector<quint32> QStLink::MergeContexts(const QVector<quint32> &registers, uint3
         ret[idx] = ram.at(i);
         i++;
     }
+
+    ret[13] = sp;
 
     return ret;
 }
@@ -369,10 +377,17 @@ void QStLink::timeout()
     if (traceRead(ar))
     {
         traceFormatData(ar);
-        trace_buffer.value(0)->seek(0);
-        QByteArray buf = trace_buffer.value(0)->readAll();
-        qDebug() << buf;
+        QByteArray & buf = *trace_buffer.value(0);
+
+        for (int i = 0; i < buf.count(); i++)
+        {
+            std::cout << (buf.at(i)) ;
+        }
+
+
+        trace_buffer.value(0)->clear();
     }
+
 
     asm("nop");
 }
@@ -569,10 +584,10 @@ void QStLink::WriteRam(uint32_t address, const QByteArray & buffer) throw (QStri
     }
 }
 
-bool QStLink::FlashVerify(const QByteArray &data)
+bool QStLink::FlashVerify(const QByteArray &data, quint32 offset)
 {
     QByteArray rx;
-    ReadRam(FLASH_BASE,data.count(), rx, true);
+    ReadRam(FLASH_BASE + offset,data.count(), rx, true);
 
     for (int i = 0 ; i < rx.count(); i++)
     {
@@ -721,6 +736,17 @@ void QStLink::SysReset()
 
     RefreshCoreStatus();
     emit CoreResetRequested();
+
+
+    if (trace.traceRequestEnabled)
+    {
+        EnterSWDMode();
+        traceEnable();
+        //traceSetCoreFrequency(trace.coreFrequency);
+        //traceUnconfigureMCU();
+        //traceConfigureMCU();
+    }
+
 }
 
 void QStLink::RefreshCoreStatus()

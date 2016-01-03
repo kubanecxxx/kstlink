@@ -72,6 +72,8 @@ private:
     QString getHandler();
 
     bool switched;
+    int segment;
+    quint32 offset;
 
 };
 

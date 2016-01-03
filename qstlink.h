@@ -28,20 +28,22 @@ class QStLink : public QStlinkAdaptor
        quint32 coreFrequency;
        quint32 swoFrequency;
        quint32 bufferSize;
+       bool traceRequestEnabled;
 
        trace():
            traceEnabled(false),
            mcuConfigured(false),
            coreFrequency(0),
            swoFrequency(2e6),
-           bufferSize(1024)
+           bufferSize(1024),
+           traceRequestEnabled(false)
        {
        }
     } trace;
 
     Q_OBJECT
 public:
-    explicit QStLink(QObject *parent, const QByteArray &mcu,bool stop = false);
+    explicit QStLink(QObject *parent, const QByteArray &mcu,bool stop = false, bool trace_enable = false, long freq = 0);
 
     //stlink version struct
     typedef struct
@@ -103,7 +105,6 @@ public:
     void WriteRamHalfWord(uint32_t address, uint16_t data);
 
     //trace commands
-    void traceSetCoreFrequency(quint32 freq) {trace.coreFrequency = freq;}
     bool traceEnable() ;
     bool traceDisable() ;
     bool traceConfigureMCU();
@@ -111,7 +112,7 @@ public:
     bool traceRead(QByteArray & data);
     void traceFormatData(const QByteArray & data);
 
-    bool FlashVerify(const QByteArray & data);
+    bool FlashVerify(const QByteArray & data, quint32 offset);
 
     inline void FlashClear(uint32_t address, uint32_t length)
     {
@@ -125,13 +126,13 @@ public:
         stm->EraseMass();
         emit ErasingActive(false);
     }
-    inline void FlashWrite(quint32 address, const QByteArray & data, bool verify)
+    inline void FlashWrite(quint32 address, const QByteArray & data, bool verify )
     {
         emit FlashingActive(true);
         stm->WriteFlash(address,data);
 
         if (verify)
-            FlashVerify(data);
+            FlashVerify(data,address - FLASH_BASE);
         emit FlashingActive(false);
     }
 
@@ -218,7 +219,7 @@ private:
      QVector<quint64> regsHandler;
      cm3DebugRegs * debug;
 
-     QMap<quint8,QBuffer *> trace_buffer;
+     QMap<quint8,QByteArray *> trace_buffer;
 
 
 

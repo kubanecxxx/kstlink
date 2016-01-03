@@ -89,10 +89,10 @@ QByteArray QLibusb::ReadTrace()
     int length = 0;
 
     QByteArray ret;
-    int tries = 20;
+    int tries = 2;
     while (1)
     {
-        libusb_bulk_transfer(handle,EP_TRACE,buffer,1000, &length,10);
+        libusb_bulk_transfer(handle,EP_TRACE,buffer,1000, &length,1);
         ret.append((char *)buffer,length);
 
         if (tries-- == 0)
