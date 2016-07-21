@@ -9,6 +9,11 @@
 #define EPIN    0x81
 #define EP_TRACE 0x83
 
+#define PID_V21 0x374b
+
+#define EPOUT_V21 0x01
+#define EP_TRACE_V21 0x82
+
 //ram write/readment size
 #define SEGMENT_SIZE 512
 
