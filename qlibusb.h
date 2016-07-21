@@ -17,6 +17,7 @@ public:
     QByteArray Read(int count) throw ( QString );
     QByteArray ReadTrace();
 
+
 signals:
 
     
@@ -25,6 +26,13 @@ public slots:
 private:
     libusb_context * context;
     libusb_device_handle * handle;
+
+    int pid;
+    int tx_ep;
+    int trace_ep;
+    int rx_ep;
+
+
 
 };
 

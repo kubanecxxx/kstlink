@@ -21,8 +21,32 @@ QLibusb::QLibusb(QObject *parent) :
 
     if (handle == NULL)
     {
-        ERR("Cannot open stlink");
+
+        //ERR("Cannot open stlink");
+        handle = libusb_open_device_with_vid_pid(context, VID, PID_V21);
+        if (handle == NULL)
+        {
+            ERR("Cannot open stlink");
+        }
+        qDebug() << QString("StLink V2.1 detected (0x0%1:0x%2)").arg(VID,0,16).arg(PID_V21,0,16);
+        pid = PID_V21;
+        tx_ep = EPOUT_V21;
+        trace_ep = EP_TRACE_V21;
+        rx_ep = EPIN;
     }
+    else
+    {
+        qDebug() << QString("StLink V2 detected (0x0%1:0x%2)").arg(VID,0,16).arg(PID,0,16);
+        pid = PID;
+
+        tx_ep = EPOUT;
+        trace_ep = EP_TRACE;
+        rx_ep = EPIN;
+    }
+
+
+
+
 
     BOTHER("Stlink Opened");
 }
@@ -42,7 +66,7 @@ int QLibusb::Write(const QByteArray &data) throw(QString)
     log += data.toHex();
     INFO(log);
     int tranfserred = 0;
-    if (libusb_bulk_transfer(handle,EPOUT,(unsigned char *)data.data(),data.length(),&tranfserred,1000))
+    if (libusb_bulk_transfer(handle,tx_ep,(unsigned char *)data.data(),data.length(),&tranfserred,1000))
     {
         throw (QString("Write to stlink timeout"));
     }
@@ -63,7 +87,7 @@ QByteArray QLibusb::Read(int count) throw ( QString )
     int tries = 5;
     while (count)
     {
-        libusb_bulk_transfer(handle,EPIN,buffer,count, &length,40);
+        libusb_bulk_transfer(handle,rx_ep,buffer,count, &length,40);
         ret.append((char *)buffer,length);
         count -= length;
 
@@ -92,7 +116,8 @@ QByteArray QLibusb::ReadTrace()
     int tries = 2;
     while (1)
     {
-        libusb_bulk_transfer(handle,EP_TRACE,buffer,1000, &length,1);
+
+        libusb_bulk_transfer(handle,trace_ep,buffer,1000, &length,1);
         ret.append((char *)buffer,length);
 
         if (tries-- == 0)
