@@ -559,16 +559,6 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         MakePacket(ans);
         asm("nop");
     }
-    else if (data.startsWith("vMustReplyEmpty"))
-    {
-        ans = "";
-        MakePacket(ans);
-    }
-    else
-    {
-        //not know packet
-        WARN(QString("Received command not known \"") + data + "\"");
-    }
     client->write(ans);
 }
 
@@ -580,9 +570,6 @@ QByteArray GdbServer::processQueryPacket(const QByteArray &data)
     {
         ans.append("PacketSize=3fff");
         ans.append(";qXfer:memory-map:read+");
-        ans.append(";fork-events-;vfork-events-;exec-events-;QThreadEvents-");
-        ans.append(";multiprocess-");
-
         stlink->BreakpointRemoveAll();
         MakePacket(ans);
     }
