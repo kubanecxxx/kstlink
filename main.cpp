@@ -21,12 +21,11 @@ int main(int argc, char *argv[])
 
 
     //parse input params
-    QVector<QByteArray> input_pars;
-    for (int i = 0 ; i < argc; i++)
+    QStringList input_pars;
+    for (int i = 1 ; i < argc; i++)
     {
         input_pars.push_back(argv[i]);
     }
-    input_pars.remove(0);
 
     QByteArray mcu;
     QByteArray file;
@@ -41,57 +40,68 @@ int main(int argc, char *argv[])
     bool gui = true;
     bool gdb = true;
     bool dbus = true;
+    bool trace = false;
+    long freq = 168e6;
 
-    for (int i = 0 ; i< input_pars.count(); i++)
+    foreach (QString param , input_pars)
     {
-        if (input_pars[i].startsWith("-m"))
+        QStringList values = param.split("=");
+        QString par = values.at(0);
+        if (par.startsWith("-m"))
         {
-            mcu = input_pars[i].mid(2);
+            mcu = values.at(1).toAscii();
         }
-        else if (input_pars[i] == "--flashonly")
+        else if (par == "--flashonly")
         {
             flashonly = true;
         }
-        else if (input_pars[i] == "--notverify")
+        else if (par == "--notverify")
         {
             notverify = true;
         }
-        else if (input_pars[i].startsWith("-i"))
+        else if (par.startsWith("-i"))
         {
-            file = input_pars[i].mid(2);
+            file = values.at(1).toAscii();
         }
-        else if (input_pars[i].startsWith("-p"))
+        else if (par.startsWith("-p"))
         {
-            QByteArray temp = input_pars[i].mid(2);
-            port = temp.toInt();
+            port = values.at(1).toInt();
         }
-        else if (input_pars[i] == "--verifyonly")
+        else if (par == "--verifyonly")
         {
             verifyonly = true;
         }
-        else if (input_pars[i] == "--erase")
+        else if (par == "--erase")
         {
             masserase = true;
         }
-        else if (input_pars[i] == "--stopcore")
+        else if (par == "--stopcore")
         {
             stop = true;
         }
-        else if (input_pars[i] == "--run")
+        else if (par == "--run")
         {
             run = true;
         }
-        else if (input_pars[i] == "--nogui")
+        else if (par == "--nogui")
         {
             gui = false;
         }
-        else if (input_pars[i] == "--nogdb")
+        else if (par == "--nogdb")
         {
             gdb = false;
         }
+        else if(par == "--trace")
+        {
+            trace =true;
+            bool ok;
+            freq = values.at(1).toLong(&ok);
+            Q_ASSERT(ok);
+
+        }
         else
         {
-            qDebug() << "unrecognized parameter:" << input_pars[i];
+            qDebug() << "unrecognized parameter:" << par;
         }
     }
 
@@ -178,7 +188,7 @@ int main(int argc, char *argv[])
             //single app - gdb only once
             try
             {
-                stlink = new QStLink(app,mcu,stop),
+                stlink = new QStLink(app,mcu,stop, trace,freq),
                 new GdbServer(app,stlink,notverify,port,file);
             } catch (QString data)
             {

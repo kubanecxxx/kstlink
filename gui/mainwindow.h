@@ -63,6 +63,7 @@ private slots:
 
     bool refreshState(void);
     void  flashWriteRequest(const QString & filename);
+    void restartRequest();
 
 private:
 

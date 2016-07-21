@@ -35,11 +35,13 @@ private:
     QString lastDir;
     bool enabled;
     bool erasing;
+    bool flashed;
 
 
 signals:
     void flashEraseRequest();
     void flashWriteRequest(const QString & filename);
+    void restartRequest();
 
 };
 

@@ -31,7 +31,7 @@ flasher::flasher(QObject *parent, QFile & BinaryFile, const QByteArray &mcu, boo
         stlink.FlashWrite(FLASH_BASE,data,true);
         stlink.SysReset();
     }
-    bool ok = stlink.FlashVerify(data);
+    bool ok = stlink.FlashVerify(data,0);
 
     if (ok)
     {

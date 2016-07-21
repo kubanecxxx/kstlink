@@ -41,6 +41,7 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     connect(com,SIGNAL(Verification(bool)),flash,SLOT(Success(bool)));
     connect(this,SIGNAL(EnableWidget(bool)),flash,SLOT(EnableWidget(bool)));
     connect(com,SIGNAL(ErasingActive(bool)),flash,SLOT(ErasingActive(bool)));
+    connect(flash,SIGNAL(restartRequest()),this,SLOT(restartRequest()));
 
 
 
@@ -110,8 +111,14 @@ MainWindow::MainWindow(Communication * comu, QObject *parent) :
     message = new QLabel();
     statusBar()->addPermanentWidget(message);
 
-    show();
+    //show();
 
+}
+
+void MainWindow::restartRequest()
+{
+    com->SysReset();
+    com->CoreRun();
 }
 
 void MainWindow::FlashingActive(bool active)
@@ -190,7 +197,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::tooLongNic()
 {
-    //tray->hide();
+    tray->hide();
     prog->hide();
 }
 
@@ -198,6 +205,19 @@ void MainWindow::activated(QSystemTrayIcon::ActivationReason reason)
 {
     if (reason == QSystemTrayIcon::Trigger)
         prog->setHidden(prog->isVisible());
+
+    else if (reason == QSystemTrayIcon::MiddleClick)
+    {
+        bool halt = com->IsCoreHalted();
+        if (halt)
+            com->CoreRun();
+        else
+            com->CoreStop();
+    }
+    else if (reason == QSystemTrayIcon::DoubleClick)
+    {
+        show();
+    }
 }
 
 void MainWindow::CoreHalted(quint32 address)
