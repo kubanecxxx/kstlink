@@ -22,11 +22,13 @@ private:
     QPoint pos;
     quint32 last;
     quint32 now;
+    quint32 frequency;
 
 public slots:
     void ShowPercents(int percent, const QString & task);
     void ShowTicks(quint32 ticks);
     void on_pushButton_clicked();
+    void timeout(void);
 };
 
 #endif // BAR_H

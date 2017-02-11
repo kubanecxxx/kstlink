@@ -5,7 +5,8 @@
 
 bar::bar(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::bar)
+    ui(new Ui::bar),
+    frequency(168e3)
 {
     ui->setupUi(this);
     setWindowFlags( Qt::WindowStaysOnTopHint | Qt::ToolTip );
@@ -14,6 +15,11 @@ bar::bar(QWidget *parent) :
     //rect.setY(100);
     setGeometry(rect);
     setMouseTracking(true);
+
+    QTimer * tmr = new QTimer(this);
+
+    connect(tmr,SIGNAL(timeout()), this,SLOT(timeout()));
+    tmr->start(1000);
 }
 
 bar::~bar()
@@ -25,7 +31,13 @@ void bar::ShowTicks(quint32 ticks)
 {
     now = ticks;
 
-    ui->pushButton->setText(QString("%1 ticks").arg(now - last));
+    int f = ui->spinBox->value() * 1000;
+    ui->pushButton->setText(QString("%1 ticks\n %2 ms").arg(now - last).arg((now-last) / f));
+}
+
+void bar::timeout()
+{
+
 }
 
 void bar::ShowPercents(int percent, const QString &task)

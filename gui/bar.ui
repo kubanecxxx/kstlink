@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>178</width>
-    <height>83</height>
+    <height>128</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -32,6 +32,22 @@
     <widget class="QPushButton" name="pushButton">
      <property name="text">
       <string>PushButton</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QSpinBox" name="spinBox">
+     <property name="suffix">
+      <string> MHz</string>
+     </property>
+     <property name="prefix">
+      <string>Frequency: </string>
+     </property>
+     <property name="maximum">
+      <number>200</number>
+     </property>
+     <property name="value">
+      <number>168</number>
      </property>
     </widget>
    </item>

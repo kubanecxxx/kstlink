@@ -550,6 +550,8 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
             }
         }
 
+
+
         std::cout << "Program size " << FlashProgram.count() << " bytes" << std::flush;
         stlink->FlashWrite(offset + FLASH_BASE,FlashProgram, !NotVerify);
         segment = 0;
@@ -559,6 +561,19 @@ void GdbServer::processPacket(QTcpSocket *client,const QByteArray &data)
         MakePacket(ans);
         asm("nop");
     }
+
+
+    else if (data.startsWith("vMustReplyEmpty"))
+    {
+        ans = "";
+        MakePacket(ans);
+    }
+    else if (data.startsWith("vKill"))
+    {
+        ans = "OK";
+        MakePacket(ans);
+    }
+
     client->write(ans);
 }
 
